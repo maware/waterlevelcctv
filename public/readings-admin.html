@@ -358,7 +358,7 @@
       <button class="btn btn-outline" onclick="openSettingsModal()">⚙️ ตั้งค่ากล้อง</button>
       <button class="btn" style="background:#0891b2;color:white" onclick="openZoneManagerModal()">🗺 จัดการโซน</button>
       <button class="btn" style="background:#7c3aed;color:white" onclick="openFillLogModal()">📋 Log การเติมค่า</button>
-      <button class="btn" style="background:#16a34a;color:white" onclick="openRunFillModal()">▶️ รัน Fill Job</button>
+      <a href="/backfill.html" class="btn" style="background:#16a34a;color:white;text-decoration:none">🔄 เติมข้อมูลย้อนหลัง</a>
       <button class="btn" style="background:#0f766e;color:white" onclick="restoreFromSheet()">⬆️ ดึงจาก Sheet</button>
     </div>
   </header>
@@ -565,33 +565,6 @@
       <div class="modal-actions">
         <button class="btn btn-outline" onclick="closeSettingsModal()">ปิด</button>
         <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึก</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Run Fill Job Modal -->
-  <div class="modal-bg" id="run-fill-modal">
-    <div class="modal" style="max-width:680px">
-      <h2>▶️ รัน Fill Job</h2>
-      <p style="color:#64748b;font-size:14px;margin-bottom:16px">
-        สั่งรัน Fill Job ทันที — ระบบจะตรวจสอบชั่วโมงที่ข้อมูลว่างและอ่านค่าจาก snapshot มาเติม
-      </p>
-
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <label style="font-size:14px;white-space:nowrap">ย้อนหลัง</label>
-        <select id="fill-hours-back" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:14px">
-          <option value="24">24 ชั่วโมง (1 วัน)</option>
-          <option value="48">48 ชั่วโมง (2 วัน)</option>
-          <option value="72" selected>72 ชั่วโมง (3 วัน)</option>
-        </select>
-        <button id="run-fill-btn" class="btn btn-primary" onclick="startFillJob()" style="background:#16a34a">
-          ▶️ เริ่มรัน
-        </button>
-        <button class="btn btn-outline" onclick="closeRunFillModal()">ปิด</button>
-      </div>
-
-      <div id="fill-job-log"
-        style="background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px;font-size:13px;font-family:monospace;height:360px;overflow-y:auto;line-height:1.7;display:none">
       </div>
     </div>
   </div>
@@ -1466,73 +1439,6 @@
       if (e.target === this) closeZoneManagerModal();
     });
 
-    // ─── Run Fill Job Modal ───────────────────────────────────────────────────
-    function openRunFillModal() {
-      document.getElementById('fill-job-log').style.display = 'none';
-      document.getElementById('fill-job-log').innerHTML = '';
-      document.getElementById('run-fill-btn').disabled = false;
-      document.getElementById('run-fill-btn').textContent = '▶️ เริ่มรัน';
-      document.getElementById('run-fill-modal').classList.add('open');
-    }
-
-    function closeRunFillModal() {
-      document.getElementById('run-fill-modal').classList.remove('open');
-    }
-
-    async function startFillJob() {
-      const hoursBack = parseInt(document.getElementById('fill-hours-back').value);
-      const logEl = document.getElementById('fill-job-log');
-      const btn = document.getElementById('run-fill-btn');
-
-      logEl.style.display = 'block';
-      logEl.innerHTML = '';
-      btn.disabled = true;
-      btn.textContent = '⏳ กำลังรัน...';
-
-      const appendLog = (type, message, time) => {
-        const color = type === 'success' ? '#4ade80' : type === 'error' ? '#f87171' : type === 'warn' ? '#fbbf24' : '#94a3b8';
-        const prefix = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warn' ? '⚠️' : 'ℹ️';
-        logEl.innerHTML += `<div style="color:${color}">[${time}] ${prefix} ${message}</div>`;
-        logEl.scrollTop = logEl.scrollHeight;
-      };
-
-      try {
-        const res = await fetch('/api/run-fill-job', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hoursBack }),
-        });
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const { type, message, time } = JSON.parse(line.slice(6));
-                appendLog(type, message, time);
-              } catch {}
-            }
-          }
-        }
-      } catch (err) {
-        appendLog('error', 'เชื่อมต่อ server ไม่ได้: ' + err.message, new Date().toLocaleTimeString('th-TH'));
-      }
-
-      btn.disabled = false;
-      btn.textContent = '▶️ รันอีกครั้ง';
-    }
-
-    document.getElementById('run-fill-modal').addEventListener('click', function(e) {
-      if (e.target === this) closeRunFillModal();
-    });
 
   </script>
 </body>

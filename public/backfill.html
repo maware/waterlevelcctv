@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เติมข้อมูลย้อนหลังรายชั่วโมง — วัดปึก</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#080e1a; --surface:#0d1625; --surface2:#131f33;
+    --border:#1e3050; --border2:#243a5a;
+    --text:#cdd9ee; --text-dim:#5a7499; --text-muted:#344d6e;
+    --accent:#2ee8a5; --accent-dim:rgba(46,232,165,.12); --accent-dim2:rgba(46,232,165,.06);
+    --warn:#f5a623; --warn-dim:rgba(245,166,35,.12);
+    --error:#ff5a5a; --error-dim:rgba(255,90,90,.1);
+    --info:#4da6ff; --info-dim:rgba(77,166,255,.1);
+    --radius:10px; --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans Thai',system-ui,sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 60px}
+
+  /* nav */
+  .topnav{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .topnav a{color:var(--text-dim);font-size:13px;text-decoration:none;display:flex;align-items:center;gap:5px}
+  .topnav a:hover{color:var(--text)}
+  .topnav .sep{color:var(--text-muted)}
+  .topnav .cur{color:var(--accent);font-weight:600;font-size:13px}
+
+  .wrap{max-width:960px;margin:0 auto;padding:24px 16px}
+
+  /* header */
+  .page-hd{display:flex;align-items:flex-start;gap:14px;margin-bottom:28px}
+  .page-hd .ico{flex-shrink:0;width:44px;height:44px;border-radius:10px;background:var(--accent-dim);border:1px solid rgba(46,232,165,.25);display:grid;place-items:center;font-size:22px}
+  .page-hd h1{font-size:20px;font-weight:700;color:#e8f0ff;line-height:1.2}
+  .page-hd p{margin-top:4px;font-size:13px;color:var(--text-dim);line-height:1.5}
+
+  /* card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px}
+  .card-head{padding:13px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim)}
+  .card-head .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);flex-shrink:0}
+  .card-body{padding:18px 20px}
+
+  /* controls */
+  .ctrl-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:150px}
+  .field label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim)}
+  .sel-wrap{position:relative}
+  .sel-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);pointer-events:none;font-size:11px}
+  select,input[type=number]{font-family:var(--sans);font-size:13px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:8px 11px;appearance:none;outline:none;width:100%;transition:border-color .15s}
+  select:focus,input[type=number]:focus{border-color:rgba(46,232,165,.5)}
+
+  .cam-tags{display:flex;flex-wrap:wrap;gap:6px}
+  .cam-tag{display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--text-dim);cursor:pointer;transition:all .15s;user-select:none}
+  .cam-tag.active{background:var(--accent-dim);border-color:rgba(46,232,165,.35);color:var(--accent)}
+  .cam-tag .ind{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.6}
+
+  /* buttons */
+  .btn-run{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#052a1a;font-family:var(--sans);font-size:13px;font-weight:700;padding:9px 20px;border:none;border-radius:var(--radius);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
+  .btn-run:hover{background:#48ffbc}
+  .btn-run:disabled{background:var(--surface2);color:var(--text-muted);cursor:not-allowed}
+  .btn-sm-fill{display:inline-flex;align-items:center;gap:5px;background:rgba(46,232,165,.15);border:1px solid rgba(46,232,165,.3);color:var(--accent);font-family:var(--sans);font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s}
+  .btn-sm-fill:hover{background:rgba(46,232,165,.25)}
+  .btn-sm-fill:disabled{opacity:.4;cursor:not-allowed}
+  .btn-clear{display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;font-weight:500;padding:7px 13px;border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;transition:all .15s}
+  .btn-clear:hover{border-color:var(--text-dim);color:var(--text)}
+
+  /* status */
+  .status-bar{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--surface2);border-top:1px solid var(--border);font-size:12px;color:var(--text-dim)}
+  .status-bar .pulse{width:7px;height:7px;border-radius:50%;background:var(--text-muted);flex-shrink:0}
+  .status-bar.running .pulse{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+  .status-bar.done .pulse{background:var(--accent)}
+  .status-bar.error .pulse{background:var(--error)}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+
+  /* progress */
+  .prog-wrap{height:3px;background:var(--border);overflow:hidden}
+  .prog-bar{height:100%;background:linear-gradient(90deg,#2ee8a5,#4da6ff);width:0%;transition:width .4s ease}
+  .prog-bar.indeterminate{width:40%!important;animation:indeterminate 1.4s ease-in-out infinite}
+  @keyframes indeterminate{0%{transform:translateX(-120%)}100%{transform:translateX(350%)}}
+
+  /* log */
+  .log-panel{font-family:var(--mono);font-size:12px;line-height:1.8;background:#050b15;border-top:1px solid var(--border);padding:14px 18px;height:280px;overflow-y:auto;scroll-behavior:smooth}
+  .log-panel::-webkit-scrollbar{width:4px}
+  .log-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+  .log-line{display:flex;gap:9px}
+  .log-time{color:var(--text-muted);flex-shrink:0}
+  .log-line.info .log-msg{color:#7daef5}
+  .log-line.success .log-msg{color:var(--accent)}
+  .log-line.error .log-msg{color:var(--error)}
+  .log-line.warn .log-msg{color:var(--warn)}
+  .log-line.dim .log-msg{color:var(--text-muted)}
+  .log-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;gap:8px;font-family:var(--sans)}
+  .log-empty svg{opacity:.25}
+
+  /* stats */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border)}
+  .stat-box{background:var(--surface);padding:11px 16px;display:flex;flex-direction:column;gap:2px}
+  .stat-box .val{font-size:20px;font-weight:700;font-family:var(--mono);color:#e8f0ff;transition:color .3s}
+  .stat-box .lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+  .stat-box.filled .val{color:var(--accent)}
+  .stat-box.skipped .val{color:var(--warn)}
+  .stat-box.errors .val{color:var(--error)}
+  .stat-box.gaps .val{color:var(--info)}
+
+  /* ── GRID TABLE ──────────────────────────────────────────── */
+  .grid-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .grid-controls .sel-wrap{min-width:130px}
+
+  .hour-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+
+  .hcell{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s}
+  .hcell.has-data{border-color:rgba(46,232,165,.2)}
+  .hcell.missing{border-color:rgba(77,166,255,.2);background:rgba(77,166,255,.03)}
+  .hcell.no-snap{border-color:rgba(255,90,90,.12);background:rgba(255,90,90,.02)}
+
+  .hcell-top{display:flex;align-items:center;gap:8px}
+  .hcell-hour{font-family:var(--mono);font-size:14px;font-weight:600;color:#e8f0ff;min-width:48px}
+  .hcell-cam{font-size:11px;color:var(--text-dim);flex:1}
+  .hcell-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap}
+  .badge-ok{background:rgba(46,232,165,.12);color:var(--accent);border:1px solid rgba(46,232,165,.2)}
+  .badge-miss{background:rgba(77,166,255,.1);color:var(--info);border:1px solid rgba(77,166,255,.2)}
+  .badge-nosnap{background:rgba(255,90,90,.1);color:var(--error);border:1px solid rgba(255,90,90,.15)}
+  .badge-snap{background:rgba(168,85,247,.12);color:#c084fc;border:1px solid rgba(168,85,247,.25)}
+  .badge-filling{background:rgba(245,166,35,.1);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
+
+  .hcell-level{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--accent);line-height:1}
+  .hcell-meta{font-size:11px;color:var(--text-muted);line-height:1.4}
+  .hcell-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+
+  .snap-thumb{width:64px;height:40px;object-fit:cover;border-radius:5px;border:1px solid var(--border2);opacity:.75;cursor:pointer;transition:opacity .15s}
+  .snap-thumb:hover{opacity:1}
+  .snap-placeholder{width:64px;height:40px;border-radius:5px;border:1px dashed var(--border2);display:grid;place-items:center;font-size:10px;color:var(--text-muted)}
+
+  .grid-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:var(--text-muted);gap:10px;font-size:13px}
+
+  /* snapshot lightbox */
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;display:none;place-items:center}
+  .lightbox.open{display:grid}
+  .lightbox img{max-width:90vw;max-height:85vh;border-radius:12px;border:1px solid var(--border2)}
+  .lightbox .lb-close{position:fixed;top:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:14px;z-index:1000}
+
+  @media(max-width:500px){
+    .stats-row{grid-template-columns:repeat(2,1fr)}
+    .ctrl-row{flex-direction:column}
+    .btn-run{width:100%;justify-content:center}
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- nav -->
+<nav class="topnav">
+  <a href="/readings-admin.html">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    ประวัติระดับน้ำ
+  </a>
+  <span class="sep">›</span>
+  <span class="cur">เติมข้อมูลย้อนหลัง</span>
+</nav>
+
+<div class="wrap">
+
+<!-- header -->
+<div class="page-hd">
+  <div class="ico">🔄</div>
+  <div>
+    <h1>เติมข้อมูลย้อนหลังรายชั่วโมง</h1>
+    <p>แสดงข้อมูลที่มี/ขาดหายรายชั่วโมง — คลิกเติมรายชั่วโมงเดียว หรือรัน Fill Job เพื่อเติมทั้งหมดจาก snapshot</p>
+  </div>
+</div>
+
+<!-- ─── GRID ─────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-head">
+    <div class="dot" style="background:#4da6ff;box-shadow:0 0 6px #4da6ff"></div>
+    <span>ตารางข้อมูลรายชั่วโมง</span>
+    <span id="grid-badge" style="margin-left:auto;font-size:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:2px 8px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">กำลังโหลด…</span>
+  </div>
+  <div class="card-body">
+    <div class="grid-controls">
+      <div class="field" style="min-width:120px;flex:0">
+        <label>ย้อนหลัง</label>
+        <div class="sel-wrap">
+          <select id="grid-hours" onchange="loadGrid()">
+            <option value="12">12 ชม.</option>
+            <option value="24" selected>24 ชม.</option>
+            <option value="48">48 ชม.</option>
+            <option value="72">72 ชม.</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="min-width:130px;flex:0">
+        <label>กล้อง</label>
+        <div class="sel-wrap">
+          <select id="grid-cam" onchange="loadGrid()">
+            <option value="">ทุกกล้อง</option>
+            <option value="CAM 2">CAM 2 — บ้านน้ำขุ่น</option>
+            <option value="CAM 4">CAM 4 — วัดกะทิง</option>
+            <option value="CAM 6">CAM 6 — วัดปึก</option>
+            <option value="CAM 8">CAM 8 — บ้านแตงเม</option>
+            <option value="CAM 10">CAM 10 — ทุ่งตาอิน</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="min-width:120px;flex:0">
+        <label>กรองสถานะ</label>
+        <div class="sel-wrap">
+          <select id="grid-filter" onchange="renderGrid()">
+            <option value="">ทั้งหมด</option>
+            <option value="missing">ขาดหาย (มี snapshot)</option>
+            <option value="nosnap">ขาดหาย (ไม่มี snapshot)</option>
+            <option value="ok">มีข้อมูลแล้ว</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-clear" onclick="loadGrid()" style="margin-top:auto">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        รีโหลด
+      </button>
+    </div>
+
+    <div class="hour-grid" id="hour-grid">
+      <div class="grid-loading">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin 1.2s linear infinite"><circle cx="12" cy="12" r="10" stroke-dasharray="30 60"/></svg>
+        กำลังโหลดข้อมูล…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── FILL JOB ─────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-head"><div class="dot"></div>รัน Fill Job อัตโนมัติ (เติมทุกชั่วโมงที่ขาด)</div>
+  <div class="card-body">
+    <div class="ctrl-row">
+      <div class="field">
+        <label>ย้อนหลัง (ชั่วโมง)</label>
+        <div class="sel-wrap">
+          <select id="sel-hours">
+            <option value="12">12 ชั่วโมง</option>
+            <option value="24" selected>24 ชั่วโมง</option>
+            <option value="48">48 ชั่วโมง</option>
+            <option value="72">72 ชั่วโมง (3 วัน)</option>
+            <option value="168">168 ชั่วโมง (1 สัปดาห์)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>กล้องเป้าหมาย</label>
+        <div class="cam-tags" id="cam-filter">
+          <div class="cam-tag active" data-cam="all" onclick="toggleCamFilter(this)"><div class="ind"></div>ทุกกล้อง</div>
+          <div class="cam-tag" data-cam="CAM 2" onclick="toggleCamFilter(this)"><div class="ind"></div>CAM 2</div>
+          <div class="cam-tag" data-cam="CAM 4" onclick="toggleCamFilter(this)"><div class="ind"></div>CAM 4</div>
+          <div class="cam-tag" data-cam="CAM 6" onclick="toggleCamFilter(this)"><div class="ind"></div>CAM 6</div>
+          <div class="cam-tag" data-cam="CAM 8" onclick="toggleCamFilter(this)"><div class="ind"></div>CAM 8</div>
+        </div>
+      </div>
+      <button class="btn-run" id="btn-run" onclick="startFillJob()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        เริ่มรัน Fill Job
+      </button>
+    </div>
+  </div>
+
+  <div class="prog-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+  <div class="status-bar" id="status-bar">
+    <div class="pulse"></div>
+    <span id="status-text">พร้อมรัน — กด "เริ่มรัน Fill Job" เพื่อเติมทุกชั่วโมงที่ขาดอัตโนมัติ</span>
+  </div>
+</div>
+
+<!-- log + stats -->
+<div class="card">
+  <div class="card-head" style="justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="dot" style="background:#4da6ff;box-shadow:0 0 6px #4da6ff"></div>
+      <span>Log การทำงาน</span>
+      <span id="log-count" style="display:none;font-size:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">0</span>
+    </div>
+    <button class="btn-clear" onclick="clearLog()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      ล้าง
+    </button>
+  </div>
+
+  <div class="log-panel" id="log-panel">
+    <div class="log-empty" id="log-empty">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <span>log จะปรากฏที่นี่เมื่อรัน Fill Job</span>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box gaps"><div class="val" id="stat-gaps">—</div><div class="lbl">ช่องว่างที่พบ</div></div>
+    <div class="stat-box filled"><div class="val" id="stat-filled">—</div><div class="lbl">เติมสำเร็จ</div></div>
+    <div class="stat-box skipped"><div class="val" id="stat-skipped">—</div><div class="lbl">ข้าม</div></div>
+    <div class="stat-box errors"><div class="val" id="stat-errors">—</div><div class="lbl">ผิดพลาด</div></div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<!-- lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕ ปิด</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<script>
+// ─── GRID ─────────────────────────────────────────────────────────────────
+const SCAN_CAMS = [
+  { camId:'cam2', camLabel:'CAM 2', zoneName:'บ้านน้ำขุ่น' },
+  { camId:'cam4', camLabel:'CAM 4', zoneName:'วัดกะทิง' },
+  { camId:'cam6', camLabel:'CAM 6', zoneName:'วัดปึก' },
+  { camId:'cam8', camLabel:'CAM 8', zoneName:'บ้านแตงเม' },
+  { camId:'cam10', camLabel:'CAM 10', zoneName:'ทุ่งตาอิน' },
+];
+
+let gridData = [];   // [{cam, date, hour, hourStr, dateStr, hasReading, reading, hasSnap, snapUrl}]
+let fillingSet = new Set();
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function nowStr(){
+  const d=new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+async function loadGrid(){
+  const hoursBack = parseInt(document.getElementById('grid-hours').value);
+  const camFilter = document.getElementById('grid-cam').value;
+  const gridEl = document.getElementById('hour-grid');
+  const badge  = document.getElementById('grid-badge');
+
+  gridEl.innerHTML = `<div class="grid-loading"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin 1.2s linear infinite"><circle cx="12" cy="12" r="10" stroke-dasharray="30 60"/></svg>กำลังโหลดข้อมูล…</div>`;
+  badge.textContent = 'กำลังโหลด…';
+
+  // โหลด readings และ snapshots พร้อมกัน
+  let readings = [], snapIndex = {};
+  try {
+    const snapParams = new URLSearchParams({ hoursBack: String(hoursBack) });
+    if(camFilter) snapParams.set('camLabel', camFilter);
+    const [rRes, sRes] = await Promise.all([
+      fetch(`/api/readings?limit=20000`),
+      fetch(`/api/snapshots-index?${snapParams}`).catch(()=>null),
+    ]);
+    if(rRes.ok) readings = await rRes.json();
+    if(sRes && sRes.ok) snapIndex = await sRes.json();
+  } catch(e){ badge.textContent='โหลดไม่ได้'; return; }
+
+  const now = new Date();
+  const cams = camFilter ? SCAN_CAMS.filter(c=>c.camLabel===camFilter) : SCAN_CAMS;
+  gridData = [];
+
+  for(const cam of cams){
+    for(let h=0; h<hoursBack; h++){
+      const d = new Date(now.getTime() - h*3600000);
+      const hourStr = `${pad2(d.getHours())}:00`;
+      const datePrefix = `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+
+      const reading = readings.find(r=>
+        r.camLabel===cam.camLabel && r.hour===hourStr &&
+        r.waterLevel!=null && (r.recordedAt||'').startsWith(datePrefix)
+      );
+
+      // หา snapshot key ง่ายๆ: camId_YYYYMMDD_HH
+      const snapKey = `${cam.camId}_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}`;
+      const snapUrl = snapIndex[snapKey] || null;
+
+      gridData.push({ cam, d, hourStr, datePrefix, hasReading:!!reading, reading, hasSnap:!!snapUrl, snapUrl });
+    }
+  }
+
+  renderGrid();
+}
+
+function renderGrid(){
+  const filter = document.getElementById('grid-filter').value;
+  const badge  = document.getElementById('grid-badge');
+  const gridEl = document.getElementById('hour-grid');
+
+  let items = gridData;
+  if(filter==='missing') items = gridData.filter(i=>!i.hasReading && i.hasSnap);
+  else if(filter==='nosnap') items = gridData.filter(i=>!i.hasReading && !i.hasSnap);
+  else if(filter==='ok') items = gridData.filter(i=>i.hasReading);
+
+  const missing = gridData.filter(i=>!i.hasReading && i.hasSnap).length;
+  const nosnap  = gridData.filter(i=>!i.hasReading && !i.hasSnap).length;
+  const ok      = gridData.filter(i=>i.hasReading).length;
+  badge.textContent = `✅ ${ok}  📷 ${missing} ขาด  ❌ ${nosnap} ไม่มี snap`;
+
+  if(items.length===0){
+    gridEl.innerHTML=`<div class="grid-loading" style="grid-column:1/-1"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3"><circle cx="12" cy="12" r="10"/></svg>ไม่มีรายการที่ตรงกับตัวกรอง</div>`;
+    return;
+  }
+
+  gridEl.innerHTML = items.map((item,idx)=>{
+    const isFilling = fillingSet.has(cellKey(item));
+    let badgeHtml, bottomHtml;
+
+    if(isFilling){
+      badgeHtml=`<span class="hcell-badge badge-filling">⏳ กำลังเติม</span>`;
+    } else if(item.hasReading){
+      badgeHtml=`<span class="hcell-badge badge-ok">✅ มีข้อมูล</span>`;
+    } else if(item.hasSnap){
+      badgeHtml=`<span class="hcell-badge badge-miss">📷 ขาด — มี snap</span>`;
+    } else {
+      badgeHtml=`<span class="hcell-badge badge-nosnap">❌ ไม่มี snapshot</span>`;
+    }
+
+    if(item.hasReading){
+      const r=item.reading;
+      const snapPart = r.fromSnapshot
+        ? `<span class="hcell-badge badge-snap" style="font-size:9px">จาก snap</span>` : '';
+      bottomHtml=`
+        <div>
+          <div class="hcell-level">${r.waterLevel!=null?r.waterLevel.toFixed(2):'—'} <span style="font-size:12px;font-weight:400;color:var(--text-dim)">ม.</span></div>
+          <div class="hcell-meta">${r.readStatus||''} · ${r.confidence?(r.confidence*100).toFixed(0)+'%':''} ${snapPart}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${item.snapUrl?`<img class="snap-thumb" src="${item.snapUrl}" onclick="event.stopPropagation();openLightbox('${item.snapUrl}')" title="snapshot">`:
+            `<div class="snap-placeholder">no snap</div>`}
+        </div>`;
+    } else if(item.hasSnap){
+      bottomHtml=`
+        <div>
+          <div class="hcell-level" style="color:var(--info)">— ม.</div>
+          <div class="hcell-meta">ยังไม่มีค่าระดับน้ำ</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <img class="snap-thumb" src="${item.snapUrl}" onclick="event.stopPropagation();openLightbox('${item.snapUrl}')" title="snapshot">
+          <button class="btn-sm-fill" id="fill-btn-${idx}" onclick="fillOne(${idx})" ${isFilling?'disabled':''}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            เติมชั่วโมงนี้
+          </button>
+        </div>`;
+    } else {
+      bottomHtml=`
+        <div>
+          <div class="hcell-level" style="color:var(--error);font-size:14px">ไม่มี snapshot</div>
+          <div class="hcell-meta">ไม่สามารถเติมได้</div>
+        </div>
+        <div class="snap-placeholder">—</div>`;
+    }
+
+    const cls = item.hasReading?'has-data':item.hasSnap?'missing':'no-snap';
+    return `<div class="hcell ${cls}">
+      <div class="hcell-top">
+        <span class="hcell-hour">${item.hourStr}</span>
+        <span class="hcell-cam">${item.cam.camLabel} · ${item.datePrefix}</span>
+        ${badgeHtml}
+      </div>
+      <div class="hcell-bottom">${bottomHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function cellKey(item){ return `${item.cam.camLabel}|${item.datePrefix}|${item.hourStr}`; }
+
+// เติมชั่วโมงเดียว — เรียก fill job แบบจำกัด 1 ชั่วโมง
+async function fillOne(idx){
+  const item = document.getElementById('grid-filter').value === ''
+    ? gridData[idx]
+    : (()=>{ const f=document.getElementById('grid-filter').value;
+        const filtered = gridData.filter(i=> f==='missing'?(!i.hasReading&&i.hasSnap): f==='nosnap'?(!i.hasReading&&!i.hasSnap): i.hasReading);
+        return filtered[idx]; })();
+
+  if(!item) return;
+  const key = cellKey(item);
+  fillingSet.add(key);
+  renderGrid();
+
+  // คำนวณกี่ชั่วโมงย้อนหลังจาก now
+  const now = new Date();
+  const diffH = Math.ceil((now - item.d) / 3600000) + 1;
+
+  appendLog('info', `เริ่มเติม ${item.cam.camLabel} ${item.datePrefix} ${item.hourStr}…`);
+
+  try {
+    const res = await fetch('/api/run-fill-job', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ hoursBack: Math.min(diffH, 168), targetCam: item.cam.camLabel }),
+    });
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data: ')) continue;
+        try{ const {type,message,time}=JSON.parse(line.slice(6)); appendLog(type,message,time); } catch{}
+      }
+    }
+    appendLog('success', `เติม ${item.cam.camLabel} ${item.hourStr} เสร็จสิ้น`);
+  } catch(e){
+    appendLog('error','เกิดข้อผิดพลาด: '+e.message);
+  }
+
+  fillingSet.delete(key);
+  setTimeout(loadGrid, 800);
+}
+
+function openLightbox(url){
+  document.getElementById('lb-img').src=url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); }
+
+// ─── FILL JOB ─────────────────────────────────────────────────────────────
+let isRunning=false, logLines=0;
+
+function toggleCamFilter(el){
+  const tags=document.querySelectorAll('.cam-tag');
+  if(el.dataset.cam==='all'){ tags.forEach(t=>t.classList.remove('active')); el.classList.add('active'); }
+  else {
+    document.querySelector('[data-cam="all"]').classList.remove('active');
+    el.classList.toggle('active');
+    if(![...tags].some(t=>t.dataset.cam!=='all'&&t.classList.contains('active')))
+      document.querySelector('[data-cam="all"]').classList.add('active');
+  }
+}
+
+function setStatus(state,text){
+  const bar=document.getElementById('status-bar');
+  bar.className='status-bar '+state;
+  document.getElementById('status-text').textContent=text;
+}
+function setProgress(pct,indeterminate=false){
+  const bar=document.getElementById('prog-bar');
+  if(indeterminate){bar.classList.add('indeterminate');bar.style.width='40%';}
+  else{bar.classList.remove('indeterminate');bar.style.width=pct+'%';}
+}
+
+function appendLog(type,message,time){
+  const panel=document.getElementById('log-panel');
+  const empty=document.getElementById('log-empty');
+  if(empty) empty.remove();
+  logLines++;
+  const lc=document.getElementById('log-count');
+  lc.style.display='';
+  lc.textContent=logLines+' บรรทัด';
+  const line=document.createElement('div');
+  line.className='log-line '+(type||'dim');
+  const prefix=type==='success'?'✓':type==='error'?'✗':type==='warn'?'!':'·';
+  line.innerHTML=`<span class="log-time">[${time||nowStr()}]</span><span class="log-msg">${prefix} ${esc(message)}</span>`;
+  panel.appendChild(line);
+  panel.scrollTop=panel.scrollHeight;
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function clearLog(){
+  document.getElementById('log-panel').innerHTML=`<div class="log-empty" id="log-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>log จะปรากฏที่นี่เมื่อรัน Fill Job</span></div>`;
+  logLines=0;
+  document.getElementById('log-count').style.display='none';
+  ['gaps','filled','skipped','errors'].forEach(k=>document.getElementById('stat-'+k).textContent='—');
+  setStatus('','พร้อมรัน — กด "เริ่มรัน Fill Job" เพื่อเติมทุกชั่วโมงที่ขาดอัตโนมัติ');
+  setProgress(0);
+}
+
+async function startFillJob(){
+  if(isRunning) return;
+  isRunning=true;
+  const hoursBack=parseInt(document.getElementById('sel-hours').value);
+  const btn=document.getElementById('btn-run');
+  btn.disabled=true;
+  btn.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="animation:spin 1s linear infinite"><path d="M12 2a10 10 0 1 0 10 10H20a8 8 0 1 1-8-8V2z"/></svg> กำลังรัน…`;
+
+  document.getElementById('log-panel').innerHTML='';
+  logLines=0;
+  document.getElementById('log-count').style.display='none';
+  ['gaps','filled','skipped','errors'].forEach(k=>document.getElementById('stat-'+k).textContent='0');
+  setStatus('running',`กำลังสแกนย้อนหลัง ${hoursBack} ชั่วโมง…`);
+  setProgress(0,true);
+
+  let filled=0,skipped=0,errors=0,gaps=0;
+  try{
+    const res=await fetch('/api/run-fill-job',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({hoursBack}),
+    });
+    if(!res.ok) throw new Error(`Server ${res.status}`);
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data: ')) continue;
+        try{
+          const {type,message,time}=JSON.parse(line.slice(6));
+          appendLog(type,message,time);
+          if(message.includes('พบช่องว่าง')){ const m=message.match(/(\d+)\s*รายการ/); if(m){gaps=parseInt(m[1]);document.getElementById('stat-gaps').textContent=gaps;} }
+          if(type==='success'&&message.includes('เติม')){ filled++; document.getElementById('stat-filled').textContent=filled; }
+          if(message.includes('ข้าม')||message.includes('มีข้อมูลแล้ว')){ skipped++; document.getElementById('stat-skipped').textContent=skipped; }
+          if(type==='error'){ errors++; document.getElementById('stat-errors').textContent=errors; }
+        } catch{}
+      }
+    }
+    setStatus('done', filled>0?`✅ เสร็จ — เติม ${filled} รายการ`:`✅ ข้อมูลครบถ้วน ไม่พบช่องว่าง`);
+    setProgress(100);
+    setTimeout(loadGrid, 1000);
+  } catch(e){
+    appendLog('error','เกิดข้อผิดพลาด: '+e.message);
+    setStatus('error','❌ เกิดข้อผิดพลาด — ดูรายละเอียดใน log');
+    setProgress(0);
+  }
+  isRunning=false;
+  btn.disabled=false;
+  btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> รันอีกครั้ง`;
+}
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+loadGrid();
+</script>
+</body>
+</html>

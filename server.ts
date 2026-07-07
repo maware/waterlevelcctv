@@ -563,6 +563,62 @@ async function startServer() {
     }
   });
 
+  // ─── Snapshots index — ใช้ใน backfill.html แสดง thumbnail รายชั่วโมง ──────
+  // GET /api/snapshots-index?hoursBack=24&camLabel=CAM+2
+  // คืน { "cam2_20250707_14": "/api/snapshot-file/2025-07-07/14-00/cam2.jpg", ... }
+  app.get("/api/snapshots-index", (req, res) => {
+    try {
+      const hoursBack = Math.min(parseInt(req.query.hoursBack as string) || 24, 168);
+      const camFilter = req.query.camLabel as string || '';
+      const SNAPSHOT_DIR = path.join(DATA_DIR, 'snapshots');
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      const index: Record<string, string> = {};
+
+      const targetCams = getTargetCams().filter(c => !camFilter || c.camLabel === camFilter);
+
+      for (const cam of targetCams) {
+        for (let h = 0; h < hoursBack; h++) {
+          const d = new Date(now.getTime() - h * 3600000);
+          const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+          const hourStr = `${pad(d.getHours())}-00`;
+          const key = `${cam.camId}_${dateStr.replace(/-/g,'')}_${pad(d.getHours())}`;
+
+          // ลองนาที 00 ก่อน แล้วไล่ 05..55
+          let found = false;
+          for (const m of [0,5,10,15,20,25,30,35,40,45,50,55]) {
+            const mStr = `${pad(d.getHours())}-${pad(m)}`;
+            const filePath = path.join(SNAPSHOT_DIR, dateStr, mStr, `${cam.camId}.jpg`);
+            if (fs.existsSync(filePath)) {
+              index[key] = `/api/snapshot-file/${dateStr}/${mStr}/${cam.camId}.jpg`;
+              found = true;
+              break;
+            }
+          }
+        }
+      }
+      res.json(index);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/snapshot-file/:date/:hourMin/:camId — serve ไฟล์ snapshot โดยตรง
+  app.get("/api/snapshot-file/:date/:hourMin/:camId", (req, res) => {
+    try {
+      const { date, hourMin, camId } = req.params;
+      const SNAPSHOT_DIR = path.join(DATA_DIR, 'snapshots');
+      const filePath = path.join(SNAPSHOT_DIR, date, hourMin, camId);
+      if (!filePath.startsWith(SNAPSHOT_DIR)) return res.status(403).end();
+      if (!fs.existsSync(filePath)) return res.status(404).end();
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      fs.createReadStream(filePath).pipe(res);
+    } catch (err: any) {
+      res.status(500).end();
+    }
+  });
+
   // ─── Snapshot endpoint ────────────────────────────────────────────────────
   app.get("/api/snapshot/:camId", async (req, res) => {
     try {
