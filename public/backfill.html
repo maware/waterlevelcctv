@@ -361,18 +361,10 @@ async function loadGrid(){
   // โหลด readings และ snapshots พร้อมกัน
   let readings = [], snapIndex = {};
   try {
-    const snapParams = new URLSearchParams({ hoursBack: String(hoursBack) });
-    if(camFilter) snapParams.set('camLabel', camFilter);
-    const [rRes, sRes] = await Promise.all([
-      fetch(`/api/readings?limit=20000`),
-      fetch(`/api/snapshots-index?${snapParams}`).catch(e=>{ console.warn('snapshots-index failed:', e); return null; }),
-    ]);
+    const rRes = await fetch(`/api/readings?limit=20000`);
     if(!rRes.ok) throw new Error(`/api/readings ตอบ ${rRes.status}`);
     readings = await rRes.json();
-    if(sRes && sRes.ok) {
-      try { snapIndex = await sRes.json(); } catch(e) { console.warn('snapshots-index ไม่ใช่ JSON (ยังไม่ deploy server.ts ใหม่)'); }
-    }
-    console.log(`[Grid] readings: ${readings.length}, snapshots: ${Object.keys(snapIndex).length}`);
+    console.log(`[Grid] readings: ${readings.length}`);
     if(readings.length > 0) console.log('[Grid] sample:', readings[readings.length-1].camLabel, readings[readings.length-1].hour, readings[readings.length-1].recordedAt);
   } catch(e){
     badge.textContent = '❌ ' + e.message;
@@ -406,11 +398,13 @@ async function loadGrid(){
 
       const reading = readingMap.get(`${cam.camLabel}|${hourStr}|${datePrefix}`);
 
-      // snapshot key: camId_YYYYMMDD_HH (ปี ค.ศ. ตาม server)
-      const snapKey = `${cam.camId}_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}`;
-      const snapUrl = snapIndex[snapKey] || null;
+      // construct snapshot URL ตรงๆ จาก path structure: data/snapshots/YYYY-MM-DD/HH-MM/camId.jpg
+      const snapDateStr = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+      const snapHourStr = `${pad2(d.getHours())}-00`;
+      // ใช้ endpoint /api/snapshot-file ถ้ามี ไม่งั้น null (จะแสดงหลัง deploy server.ts)
+      const snapUrl = `/api/snapshot-file/${snapDateStr}/${snapHourStr}/${cam.camId}.jpg`;
 
-      gridData.push({ cam, d, hourStr, datePrefix: datePrefixDisplay, hasReading:!!reading, reading: reading||null, hasSnap:!!snapUrl, snapUrl });
+      gridData.push({ cam, d, hourStr, datePrefix: datePrefixDisplay, hasReading:!!reading, reading: reading||null, hasSnap: true, snapUrl });
     }
   }
 
@@ -467,8 +461,7 @@ function renderGrid(){
           <div class="hcell-meta">${r.readStatus||''} · ${r.confidence?(r.confidence*100).toFixed(0)+'%':''} ${snapPart}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          ${item.snapUrl?`<img class="snap-thumb" src="${item.snapUrl}" onclick="event.stopPropagation();openLightbox('${item.snapUrl}')" title="snapshot">`:
-            `<div class="snap-placeholder">no snap</div>`}
+          <img class="snap-thumb" src="${item.snapUrl}" onclick="event.stopPropagation();openLightbox('${item.snapUrl}')" onerror="this.style.display='none'" title="snapshot">
         </div>`;
     } else if(item.hasSnap){
       bottomHtml=`
@@ -477,7 +470,10 @@ function renderGrid(){
           <div class="hcell-meta">ยังไม่มีค่าระดับน้ำ</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <img class="snap-thumb" src="${item.snapUrl}" onclick="event.stopPropagation();openLightbox('${item.snapUrl}')" title="snapshot">
+          <img class="snap-thumb" src="${item.snapUrl}"
+            onclick="event.stopPropagation();openLightbox('${item.snapUrl}')"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='none'"
+            title="snapshot">
           <button class="btn-sm-fill" id="fill-btn-${idx}" onclick="fillOne(${idx})" ${isFilling?'disabled':''}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             เติมชั่วโมงนี้
