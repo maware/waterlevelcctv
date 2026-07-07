@@ -506,9 +506,8 @@ async function fillOne(idx){
   fillingSet.add(key);
   renderGrid();
 
-  // คำนวณกี่ชั่วโมงย้อนหลังจาก now
-  const now = new Date();
-  const diffH = Math.ceil((now - item.d) / 3600000) + 1;
+  // ส่งเฉพาะกล้อง+ชั่วโมง+วันที่ที่ต้องการเติม
+  const targetDate = `${item.d.getFullYear()}-${String(item.d.getMonth()+1).padStart(2,'0')}-${String(item.d.getDate()).padStart(2,'0')}`;
 
   appendLog('info', `เริ่มเติม ${item.cam.camLabel} ${item.datePrefix} ${item.hourStr}…`);
 
@@ -516,7 +515,12 @@ async function fillOne(idx){
     const res = await fetch('/api/run-fill-job', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ hoursBack: Math.min(diffH, 168), targetCam: item.cam.camLabel }),
+      body:JSON.stringify({
+        hoursBack: 168,
+        targetCam: item.cam.camLabel,
+        targetHour: item.hourStr,
+        targetDate: targetDate,
+      }),
     });
     const reader = res.body.getReader();
     const dec = new TextDecoder();

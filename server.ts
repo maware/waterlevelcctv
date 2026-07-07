@@ -234,7 +234,7 @@ async function startServer() {
 
   // POST /api/run-fill-job — รัน fill job แบบ manual พร้อม stream log กลับมา (Server-Sent Events)
   app.post("/api/run-fill-job", async (req, res) => {
-    const { hoursBack = 72 } = req.body;
+    const { hoursBack = 72, targetCam = '', targetHour = '', targetDate = '' } = req.body;
 
     // ตั้งค่า SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -257,7 +257,8 @@ async function startServer() {
 
       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
       const pad = (n: number) => String(n).padStart(2, '0');
-      const targetCams = getTargetCams();
+      let targetCams = getTargetCams();
+      if (targetCam) targetCams = targetCams.filter((c: any) => c.camLabel === targetCam);
 
       send('info', `กล้องที่ตรวจสอบ: ${targetCams.map((c: any) => c.camLabel).join(', ')}`);
 
@@ -303,6 +304,12 @@ async function startServer() {
         for (let h = 0; h < hoursBack; h++) {
           const checkDate = new Date(now.getTime() - h * 60 * 60 * 1000);
           const hourStr = `${pad(checkDate.getHours())}:00`;
+          // กรองเฉพาะชั่วโมง/วันที่ที่ระบุ (สำหรับกดเติมรายชั่วโมงเดียว)
+          if (targetHour && hourStr !== targetHour) continue;
+          if (targetDate) {
+            const cellDate = `${checkDate.getFullYear()}-${pad(checkDate.getMonth()+1)}-${pad(checkDate.getDate())}`;
+            if (cellDate !== targetDate) continue;
+          }
           // เช็ควันที่ด้วย โดยใช้ recordedAt format "DD/MM/YYYY" (คริสต์ศักราช)
           const datePrefix = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()}`;
           const hasReading = readings.some((r: any) =>
@@ -560,62 +567,6 @@ async function startServer() {
       res.json(await geminiOCR(ai, imagePart));
     } catch (err: any) {
       res.status(500).json({ error: "SERVICE_ERROR", message: err.message });
-    }
-  });
-
-  // ─── Snapshots index — ใช้ใน backfill.html แสดง thumbnail รายชั่วโมง ──────
-  // GET /api/snapshots-index?hoursBack=24&camLabel=CAM+2
-  // คืน { "cam2_20250707_14": "/api/snapshot-file/2025-07-07/14-00/cam2.jpg", ... }
-  app.get("/api/snapshots-index", (req, res) => {
-    try {
-      const hoursBack = Math.min(parseInt(req.query.hoursBack as string) || 24, 168);
-      const camFilter = req.query.camLabel as string || '';
-      const SNAPSHOT_DIR = path.join(DATA_DIR, 'snapshots');
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-      const index: Record<string, string> = {};
-
-      const targetCams = getTargetCams().filter(c => !camFilter || c.camLabel === camFilter);
-
-      for (const cam of targetCams) {
-        for (let h = 0; h < hoursBack; h++) {
-          const d = new Date(now.getTime() - h * 3600000);
-          const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-          const hourStr = `${pad(d.getHours())}-00`;
-          const key = `${cam.camId}_${dateStr.replace(/-/g,'')}_${pad(d.getHours())}`;
-
-          // ลองนาที 00 ก่อน แล้วไล่ 05..55
-          let found = false;
-          for (const m of [0,5,10,15,20,25,30,35,40,45,50,55]) {
-            const mStr = `${pad(d.getHours())}-${pad(m)}`;
-            const filePath = path.join(SNAPSHOT_DIR, dateStr, mStr, `${cam.camId}.jpg`);
-            if (fs.existsSync(filePath)) {
-              index[key] = `/api/snapshot-file/${dateStr}/${mStr}/${cam.camId}.jpg`;
-              found = true;
-              break;
-            }
-          }
-        }
-      }
-      res.json(index);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // GET /api/snapshot-file/:date/:hourMin/:camId — serve ไฟล์ snapshot โดยตรง
-  app.get("/api/snapshot-file/:date/:hourMin/:camId", (req, res) => {
-    try {
-      const { date, hourMin, camId } = req.params;
-      const SNAPSHOT_DIR = path.join(DATA_DIR, 'snapshots');
-      const filePath = path.join(SNAPSHOT_DIR, date, hourMin, camId);
-      if (!filePath.startsWith(SNAPSHOT_DIR)) return res.status(403).end();
-      if (!fs.existsSync(filePath)) return res.status(404).end();
-      res.setHeader('Content-Type', 'image/jpeg');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      fs.createReadStream(filePath).pipe(res);
-    } catch (err: any) {
-      res.status(500).end();
     }
   });
 
