@@ -570,6 +570,23 @@ async function startServer() {
     }
   });
 
+  // ─── Snapshot file server — serve ไฟล์ภาพ snapshot โดยตรง ──────────────────
+  app.get("/api/snapshot-file/:date/:hourMin/:camId", (req, res) => {
+    try {
+      const { date, hourMin, camId } = req.params;
+      const SNAP_DIR = path.join(DATA_DIR, 'snapshots');
+      const filePath = path.join(SNAP_DIR, date, hourMin, camId);
+      // ป้องกัน path traversal
+      if (!filePath.startsWith(SNAP_DIR)) return res.status(403).end();
+      if (!fs.existsSync(filePath)) return res.status(404).end();
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      fs.createReadStream(filePath).pipe(res);
+    } catch (err: any) {
+      res.status(500).end();
+    }
+  });
+
   // ─── Snapshot endpoint ────────────────────────────────────────────────────
   app.get("/api/snapshot/:camId", async (req, res) => {
     try {
