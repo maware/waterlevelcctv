@@ -309,6 +309,22 @@
 
 <script>
 // ─── GRID ─────────────────────────────────────────────────────────────────
+// ลอง snapshot นาทีถัดไปถ้านาที 00 ไม่มี
+function tryNextSnap(img) {
+  const fallbacks = (img.dataset.fallbacks || '').split('|').filter(Boolean);
+  if(fallbacks.length === 0) {
+    img.style.display = 'none';
+    // ซ่อนปุ่มเติมด้วยถ้าอยู่ใน missing section
+    if(img.nextElementSibling && img.nextElementSibling.classList.contains('btn-sm-fill')) {
+      img.nextElementSibling.style.display = 'none';
+    }
+    img.dataset.failed = '1';
+    return;
+  }
+  img.dataset.fallbacks = fallbacks.slice(1).join('|');
+  img.src = fallbacks[0];
+}
+
 // โหลดจาก /api/config จริง — fallback ถ้าไม่ได้
 let SCAN_CAMS = [
   { camId:'cam2', camLabel:'CAM 2', zoneName:'บ้านน้ำขุ่น' },
@@ -398,13 +414,18 @@ async function loadGrid(){
 
       const reading = readingMap.get(`${cam.camLabel}|${hourStr}|${datePrefix}`);
 
-      // construct snapshot URL ตรงๆ จาก path structure: data/snapshots/YYYY-MM-DD/HH-MM/camId.jpg
+      // construct snapshot URL — ไล่หานาที 00,05,10,...,55 อันแรกที่มี
+      // (server เก็บทุก 5 นาที ใน data/snapshots/YYYY-MM-DD/HH-MM/camId.jpg)
       const snapDateStr = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-      const snapHourStr = `${pad2(d.getHours())}-00`;
-      // ใช้ endpoint /api/snapshot-file ถ้ามี ไม่งั้น null (จะแสดงหลัง deploy server.ts)
-      const snapUrl = `/api/snapshot-file/${snapDateStr}/${snapHourStr}/${cam.camId}.jpg`;
+      const snapHour = pad2(d.getHours());
+      // ใช้ URL นาที 00 เป็น default แล้วให้ img onerror ลอง fallback ต่อ
+      const snapUrl = `/api/snapshot-file/${snapDateStr}/${snapHour}-00/${cam.camId}.jpg`;
+      // เก็บ fallback list ทุก 5 นาทีไว้ใน dataset
+      const snapFallbacks = [5,10,15,20,25,30,35,40,45,50,55].map(
+        m => `/api/snapshot-file/${snapDateStr}/${snapHour}-${pad2(m)}/${cam.camId}.jpg`
+      );
 
-      gridData.push({ cam, d, hourStr, datePrefix: datePrefixDisplay, hasReading:!!reading, reading: reading||null, hasSnap: true, snapUrl });
+      gridData.push({ cam, d, hourStr, datePrefix: datePrefixDisplay, hasReading:!!reading, reading: reading||null, hasSnap: true, snapUrl, snapFallbacks });
     }
   }
 
@@ -461,7 +482,11 @@ function renderGrid(){
           <div class="hcell-meta">${r.readStatus||''} · ${r.confidence?(r.confidence*100).toFixed(0)+'%':''} ${snapPart}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <img class="snap-thumb" src="${item.snapUrl}" onclick="event.stopPropagation();openLightbox('${item.snapUrl}')" onerror="this.style.display='none'" title="snapshot">
+          <img class="snap-thumb" src="${item.snapUrl}"
+            data-fallbacks="${item.snapFallbacks.join('|')}"
+            onclick="event.stopPropagation();if(this.src&&!this.dataset.failed)openLightbox(this.src)"
+            onerror="tryNextSnap(this)"
+            title="snapshot ${item.hourStr}">
         </div>`;
     } else if(item.hasSnap){
       bottomHtml=`
@@ -471,9 +496,10 @@ function renderGrid(){
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <img class="snap-thumb" src="${item.snapUrl}"
-            onclick="event.stopPropagation();openLightbox('${item.snapUrl}')"
-            onerror="this.style.display='none';this.nextElementSibling.style.display='none'"
-            title="snapshot">
+            data-fallbacks="${item.snapFallbacks.join('|')}"
+            onclick="event.stopPropagation();if(this.src&&!this.dataset.failed)openLightbox(this.src)"
+            onerror="tryNextSnap(this)"
+            title="snapshot ${item.hourStr}">
           <button class="btn-sm-fill" id="fill-btn-${idx}" onclick="fillOne(${idx})" ${isFilling?'disabled':''}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             เติมชั่วโมงนี้
