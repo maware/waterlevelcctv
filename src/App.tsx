@@ -2195,7 +2195,8 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveZoneIndex(zIdx);
+                            const realIndex = zones.findIndex(z => z.id === zone.id);
+                            setActiveZoneIndex(realIndex !== -1 ? realIndex : zIdx);
                             setIsFocusModalOpen(true);
                             addLog('info', `เปิดวิดีโอเจาะจงจุดเดี่ยว (Focus View): จุดติดตั้ง [${zone.name}]`);
                           }}
