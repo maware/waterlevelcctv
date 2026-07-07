@@ -309,12 +309,12 @@
 
 <script>
 // ─── GRID ─────────────────────────────────────────────────────────────────
-// ลอง snapshot นาทีถัดไปถ้านาที 00 ไม่มี
+// ลอง snapshot นาทีถัดไปถ้านาที 00 ไม่มี — โหลดสำเร็จแล้วหยุดทันที
 function tryNextSnap(img) {
+  if(img.dataset.done) return; // โหลดสำเร็จแล้ว ไม่ต้อง fallback
   const fallbacks = (img.dataset.fallbacks || '').split('|').filter(Boolean);
   if(fallbacks.length === 0) {
     img.style.display = 'none';
-    // ซ่อนปุ่มเติมด้วยถ้าอยู่ใน missing section
     if(img.nextElementSibling && img.nextElementSibling.classList.contains('btn-sm-fill')) {
       img.nextElementSibling.style.display = 'none';
     }
@@ -323,6 +323,10 @@ function tryNextSnap(img) {
   }
   img.dataset.fallbacks = fallbacks.slice(1).join('|');
   img.src = fallbacks[0];
+}
+function snapLoaded(img) {
+  img.dataset.done = '1';
+  img.dataset.fallbacks = ''; // หยุด fallback
 }
 
 // โหลดจาก /api/config จริง — fallback ถ้าไม่ได้
@@ -485,7 +489,7 @@ function renderGrid(){
           <img class="snap-thumb" src="${item.snapUrl}"
             data-fallbacks="${item.snapFallbacks.join('|')}"
             onclick="event.stopPropagation();if(this.src&&!this.dataset.failed)openLightbox(this.src)"
-            onerror="tryNextSnap(this)"
+            onload="snapLoaded(this)" onerror="tryNextSnap(this)"
             title="snapshot ${item.hourStr}">
         </div>`;
     } else if(item.hasSnap){
@@ -498,7 +502,7 @@ function renderGrid(){
           <img class="snap-thumb" src="${item.snapUrl}"
             data-fallbacks="${item.snapFallbacks.join('|')}"
             onclick="event.stopPropagation();if(this.src&&!this.dataset.failed)openLightbox(this.src)"
-            onerror="tryNextSnap(this)"
+            onload="snapLoaded(this)" onerror="tryNextSnap(this)"
             title="snapshot ${item.hourStr}">
           <button class="btn-sm-fill" id="fill-btn-${idx}" onclick="fillOne(${idx})" ${isFilling?'disabled':''}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
