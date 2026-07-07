@@ -309,13 +309,35 @@
 
 <script>
 // ─── GRID ─────────────────────────────────────────────────────────────────
-const SCAN_CAMS = [
+// โหลดจาก /api/config จริง — fallback ถ้าไม่ได้
+let SCAN_CAMS = [
   { camId:'cam2', camLabel:'CAM 2', zoneName:'บ้านน้ำขุ่น' },
   { camId:'cam4', camLabel:'CAM 4', zoneName:'วัดกะทิง' },
   { camId:'cam6', camLabel:'CAM 6', zoneName:'วัดปึก' },
   { camId:'cam8', camLabel:'CAM 8', zoneName:'บ้านแตงเม' },
-  { camId:'cam10', camLabel:'CAM 10', zoneName:'ทุ่งตาอิน' },
 ];
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if(!res.ok) return;
+    const cfg = await res.json();
+    if(Array.isArray(cfg.scanCams) && cfg.scanCams.length > 0) {
+      SCAN_CAMS = cfg.scanCams.map(c => ({ camId: c.camId, camLabel: c.camLabel, zoneName: c.zoneName }));
+      // อัปเดต dropdown กล้อง
+      const sel = document.getElementById('grid-cam');
+      const selFill = document.getElementById('cam-filter');
+      if(sel) {
+        sel.innerHTML = '<option value="">ทุกกล้อง</option>' +
+          SCAN_CAMS.map(c=>`<option value="${c.camLabel}">${c.camLabel} — ${c.zoneName}</option>`).join('');
+      }
+      if(selFill) {
+        selFill.innerHTML = '<div class="cam-tag active" data-cam="all" onclick="toggleCamFilter(this)"><div class="ind"></div>ทุกกล้อง</div>' +
+          SCAN_CAMS.map(c=>`<div class="cam-tag" data-cam="${c.camLabel}" onclick="toggleCamFilter(this)"><div class="ind"></div>${c.camLabel}</div>`).join('');
+      }
+    }
+  } catch(e) { console.warn('loadConfig failed:', e); }
+}
 
 let gridData = [];   // [{cam, date, hour, hourStr, dateStr, hasReading, reading, hasSnap, snapUrl}]
 let fillingSet = new Set();
@@ -359,18 +381,31 @@ async function loadGrid(){
       const hourStr = `${pad2(d.getHours())}:00`;
       const datePrefix = `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
 
+      // recordedAt ใช้ปีพุทธศักราช เช่น "07/07/2569 14:00:00"
+      const datePrefixBE = `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()+543}`;
+      // บางรายการอาจใช้ปี ค.ศ. รองรับทั้งสองแบบ
+      const datePrefixCE = `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+
       const reading = readings.find(r=>
         r.camLabel===cam.camLabel && r.hour===hourStr &&
-        r.waterLevel!=null && (r.recordedAt||'').startsWith(datePrefix)
+        r.waterLevel!=null &&
+        ((r.recordedAt||'').startsWith(datePrefixBE) || (r.recordedAt||'').startsWith(datePrefixCE) ||
+         (r.dateStr||'') === `${d.getDate()} ${['มก.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][d.getMonth()]}`)
       );
 
-      // หา snapshot key ง่ายๆ: camId_YYYYMMDD_HH
+      // snapshot key: camId_YYYYMMDD_HH (ปี ค.ศ. ตาม server)
       const snapKey = `${cam.camId}_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}`;
       const snapUrl = snapIndex[snapKey] || null;
 
       gridData.push({ cam, d, hourStr, datePrefix, hasReading:!!reading, reading, hasSnap:!!snapUrl, snapUrl });
     }
   }
+
+  // debug: แสดงสิ่งที่โหลดได้
+  const snapCount = Object.keys(snapIndex).length;
+  console.log(`[Grid] readings: ${readings.length}, snapshots: ${snapCount}, gridData: ${gridData.length}`);
+  if(readings.length > 0) console.log('[Grid] sample recordedAt:', readings[0].recordedAt, 'hour:', readings[0].hour, 'cam:', readings[0].camLabel);
+  if(snapCount > 0) console.log('[Grid] sample snapKey:', Object.keys(snapIndex)[0]);
 
   renderGrid();
 }
@@ -616,7 +651,7 @@ async function startFillJob(){
 }
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
-loadGrid();
+loadConfig().then(() => loadGrid());
 </script>
 </body>
 </html>
