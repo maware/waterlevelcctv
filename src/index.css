@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Bai+Jamjuree:wght@400;500;600;700&display=swap');
+
+@font-face {
+  font-family: 'Angsana New';
+  src: local('Angsana New'),
+    url('/fonts/AngsanaNew.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Angsana New';
+  src: local('Angsana New Bold'), local('Angsana New-Bold'),
+    url('/fonts/AngsanaNewBold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Angsana New';
+  src: local('Angsana New Italic'), local('Angsana New-Italic'),
+    url('/fonts/AngsanaNewItalic.woff2') format('woff2');
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Angsana New';
+  src: local('Angsana New Bold Italic'), local('Angsana New-BoldItalic'),
+    url('/fonts/AngsanaNewBoldItalic.woff2') format('woff2');
+  font-weight: bold;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AngsanaUPC';
+  src: local('AngsanaUPC'),
+    url('/fonts/AngsanaUPC.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AngsanaUPC';
+  src: local('AngsanaUPC Bold'), local('AngsanaUPC-Bold'),
+    url('/fonts/AngsanaUPCBold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AngsanaUPC';
+  src: local('AngsanaUPC Italic'), local('AngsanaUPC-Italic'),
+    url('/fonts/AngsanaUPCItalic.woff2') format('woff2');
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AngsanaUPC';
+  src: local('AngsanaUPC Bold Italic'), local('AngsanaUPC-BoldItalic'),
+    url('/fonts/AngsanaUPCBoldItalic.woff2') format('woff2');
+  font-weight: bold;
+  font-style: italic;
+  font-display: swap;
+}
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Angsana New', 'AngsanaUPC', 'Sarabun', 'Bai Jamjuree', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Courier New', 'Courier', monospace;
+}
+
+/* Make font sizes highly readable for elderly users */
+html,
+body {
+  min-width: 400px;
+  overflow-x: auto;
+}
+
+html {
+  font-family: var(--font-sans);
+  /* Increase base font scaling to make Angsana New larger and visually magnificent */
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+/* Custom styles for Angsana New text adjustments */
+.elderly-title {
+  font-size: 2.22rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.elderly-subtitle {
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.elderly-body {
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+/* Scrollbar styling for horizontal points */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

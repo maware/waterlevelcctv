@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /readings-admin.html
+
+Sitemap: https://cam.watpuekwater.org/sitemap.xml

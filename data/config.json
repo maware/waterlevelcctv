@@ -1,0 +1,34 @@
+{
+  "gatewayUrl": "https://webrtc.watpuekwater.org",
+  "adminPassword": "12345678",
+  "selectedQuality": "480p",
+  "scanCams": [
+    {
+      "camId": "cam2",
+      "camPath": "cam2_480p",
+      "camLabel": "CAM 2",
+      "zoneName": "บ้านน้ำขุ่น"
+    },
+    {
+      "camId": "cam4",
+      "camPath": "cam4_480p",
+      "camLabel": "CAM 4",
+      "zoneName": "วัดกะทิง"
+    },
+    {
+      "camId": "cam6",
+      "camPath": "cam6_480p",
+      "camLabel": "CAM 6",
+      "zoneName": "วัดปึก"
+    },
+    {
+      "camId": "cam8",
+      "camPath": "cam8_480p",
+      "camLabel": "CAM 8",
+      "zoneName": "บ้านแตงเม"
+    }
+  ],
+  "hiddenZones": [
+    "zone-5"
+  ]
+}

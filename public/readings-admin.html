@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ประวัติระดับน้ำ — วัดปึก</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #f0f4f8;
+      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 18px;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1e3a5f;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    header p {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .stat-card .num {
+      font-size: 32px;
+      font-weight: 900;
+      color: #1e3a5f;
+    }
+
+    .stat-card .label {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .toolbar input,
+    .toolbar select {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      background: #f8fafc;
+    }
+
+    .toolbar input:focus,
+    .toolbar select:focus {
+      border-color: #1e3a5f;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: #1e3a5f;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1e40af;
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .btn-outline {
+      background: white;
+      color: #1e3a5f;
+      border: 1px solid #1e3a5f;
+    }
+
+    .btn-outline:hover {
+      background: #f0f4ff;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 13px;
+    }
+
+    /* Table */
+    .table-wrap {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      background: #1e3a5f;
+      color: white;
+    }
+
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+      transition: 0.1s;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    tbody td {
+      padding: 10px 14px;
+      font-size: 15px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .badge-normal {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-watch {
+      background: #fef9c3;
+      color: #854d0e;
+    }
+
+    .badge-crisis {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .level-num {
+      font-size: 18px;
+      font-weight: 900;
+      color: #1e3a5f;
+    }
+
+    /* Modal */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-bg.open {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      margin: 16px;
+    }
+
+    .modal h2 {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 16px;
+      color: #1e3a5f;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: #1e3a5f;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    .page-btn.active {
+      background: #1e3a5f;
+      color: white;
+      border-color: #1e3a5f;
+    }
+
+    .page-btn:hover:not(.active) {
+      background: #f0f4ff;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 48px;
+      color: #94a3b8;
+      font-size: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .hide-mobile {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div>
+      <h1>📊 ประวัติระดับน้ำ</h1>
+      <p>วัดปึก แจ้งระดับน้ำ — จัดการข้อมูลเบื้องหลัง</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" style="background:#f59e0b;color:#1c1917" onclick="openScanModal()">📷 สแกน AI ตอนนี้</button>
+      <button class="btn btn-success" onclick="openAddModal()">+ เพิ่มข้อมูล</button>
+      <button class="btn btn-danger" onclick="deleteAll()">🗑 ลบทั้งหมด</button>
+      <button class="btn btn-outline" style="color:white;border-color:white" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn" style="background:#1d4ed8;color:white" onclick="backupToSheet()">☁️ Backup ไป Sheet</button>
+      <button class="btn btn-outline" onclick="openSettingsModal()">⚙️ ตั้งค่ากล้อง</button>
+      <button class="btn" style="background:#0891b2;color:white" onclick="openZoneManagerModal()">🗺 จัดการโซน</button>
+      <button class="btn" style="background:#7c3aed;color:white" onclick="openFillLogModal()">📋 Log การเติมค่า</button>
+      <button class="btn" style="background:#16a34a;color:white" onclick="openRunFillModal()">▶️ รัน Fill Job</button>
+      <button class="btn" style="background:#0f766e;color:white" onclick="restoreFromSheet()">⬆️ ดึงจาก Sheet</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="num" id="stat-total">—</div>
+        <div class="label">รายการทั้งหมด</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="stat-today">—</div>
+        <div class="label">วันนี้</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="stat-avg">—</div>
+        <div class="label">ระดับเฉลี่ย (ม.)</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="stat-crisis">—</div>
+        <div class="label">วิกฤต</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="🔍 ค้นหาโซน / กล้อง..." oninput="renderTable()"
+        style="flex:1;min-width:180px">
+      <select id="filter-zone" onchange="renderTable()">
+        <option value="">ทุกโซน</option>
+      </select>
+      <select id="filter-status" onchange="renderTable()">
+        <option value="">ทุกสถานะ</option>
+        <option value="ระดับปกติ">ระดับปกติ</option>
+        <option value="เฝ้าระวัง">เฝ้าระวัง</option>
+        <option value="วิกฤต">วิกฤต</option>
+      </select>
+      <input type="date" id="filter-date" onchange="renderTable()">
+      <button class="btn btn-outline" onclick="clearFilters()">✕ ล้างตัวกรอง</button>
+      <button class="btn btn-primary" onclick="loadData()">🔄 รีโหลด</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>วันที่/เวลา</th>
+            <th>โซน</th>
+            <th>กล้อง</th>
+            <th>ชั่วโมง</th>
+            <th>ระดับน้ำ</th>
+            <th>สถานะ</th>
+            <th class="hide-mobile">ความแม่นยำ</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr>
+            <td colspan="8" class="empty">กำลังโหลด...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="text-align:center;color:#94a3b8;font-size:13px;margin-top:8px">💡 คลิกที่แถวเพื่อดูรายละเอียด</p>
+    <!-- Pagination -->
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+
+
+  <!-- Backup Modal -->
+  <div class="modal-bg" id="backup-modal">
+    <div class="modal" style="max-width:520px">
+      <h2 id="backup-title">☁️ Backup ไป Google Sheets</h2>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px" id="backup-desc"></p>
+
+      <div class="form-group">
+        <label>Google Spreadsheet ID</label>
+        <input type="text" id="backup-sheet-id" value="1HlxtltTtl7Mk-i5d-2V9D0uy0y0U4L5oet3dRFPvmjQ"
+          style="font-family:monospace;font-size:12px;background:#f1f5f9" readonly>
+      </div>
+
+      <div id="backup-log"
+        style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:60px;font-size:13px;font-family:monospace;max-height:200px;overflow-y:auto;display:none;white-space:pre-wrap">
+      </div>
+
+      <div id="import-area" style="display:none;margin-top:12px">
+        <label class="btn btn-outline" style="cursor:pointer;width:100%;justify-content:center">
+          📂 เลือกไฟล์ CSV เพื่อ Import
+          <input type="file" accept=".csv" style="display:none" onchange="importCSV(this)">
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeBackupModal()">ปิด</button>
+        <button class="btn btn-primary" onclick="doBackup()" id="backup-btn">ดำเนินการ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scan Modal -->
+  <div class="modal-bg" id="scan-modal">
+    <div class="modal">
+      <h2>📷 สแกน AI ตอนนี้</h2>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px">เลือกกล้องที่ต้องการสแกนระดับน้ำด้วย AI ทันที</p>
+
+      <div class="form-group">
+        <label>Secret Key</label>
+        <input type="password" id="scan-secret" placeholder="watpuek_cloud_sync_secret"
+          value="watpuek_cloud_sync_secret">
+      </div>
+
+      <div class="form-group">
+        <label>เลือกกล้อง</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="cam-buttons">
+          <button class="btn btn-outline cam-btn" onclick="toggleCam(this,'cam2','cam2_480p','CAM 2','บ้านน้ำขุ่น')">CAM
+            2 — บ้านน้ำขุ่น</button>
+          <button class="btn btn-outline cam-btn" onclick="toggleCam(this,'cam4','cam4_480p','CAM 4','วัดกะทิง')">CAM 4
+            — วัดกะทิง</button>
+          <button class="btn btn-outline cam-btn" onclick="toggleCam(this,'cam6','cam6_480p','CAM 6','วัดปึก')">CAM 6 —
+            วัดปึก</button>
+          <button class="btn btn-outline cam-btn" onclick="toggleCam(this,'cam8','cam8_480p','CAM 8','บ้านแตงเม')">CAM 8
+            — บ้านแตงเม</button>
+          <button class="btn btn-outline cam-btn" onclick="toggleCam(this,'cam10','cam10_480p','CAM 10','ทุ่งตาอิน')">CAM 10
+            — ทุ่งตาอิน</button>
+        </div>
+      </div>
+
+      <div id="scan-log"
+        style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:80px;font-size:13px;font-family:monospace;max-height:200px;overflow-y:auto;margin-top:8px;display:none">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeScanModal()">ปิด</button>
+        <button class="btn" style="background:#f59e0b;color:#1c1917;font-weight:900" onclick="runScan()"
+          id="scan-btn">🚀 สแกนที่เลือก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal — กล้องสแกนอัตโนมัติ -->
+  <div class="modal-bg" id="settings-modal">
+    <div class="modal" style="max-width:520px">
+      <h2>⚙️ ตั้งค่ากล้องสแกนอัตโนมัติ</h2>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px">เลือกกล้องที่ต้องการให้สแกนอัตโนมัติทุกชั่วโมง
+        (ถ้าอ่านไม่ได้จะเช็คและเติมจาก snapshot ให้อัตโนมัติทุก 5 นาที)</p>
+
+      <div class="form-group">
+        <label>กล้องที่ต้องการสแกน</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label
+            style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="sc-cam2" value="cam2"> CAM 2 — บ้านน้ำขุ่น
+          </label>
+          <label
+            style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="sc-cam4" value="cam4"> CAM 4 — วัดกะทิง
+          </label>
+          <label
+            style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="sc-cam6" value="cam6"> CAM 6 — วัดปึก
+          </label>
+          <label
+            style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="sc-cam8" value="cam8"> CAM 8 — บ้านแตงเม
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="sc-cam10" value="cam10"> CAM 10 — ทุ่งตาอิน
+          </label>
+        </div>
+      </div>
+
+      <div id="settings-log"
+        style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;font-family:monospace;margin-top:8px;display:none">
+      </div>
+
+      <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0">
+
+      <div class="form-group">
+        <label style="font-weight:600;margin-bottom:8px;display:block">👁 การแสดงโซนในหน้าเว็บหลัก</label>
+        <p style="color:#64748b;font-size:13px;margin-bottom:10px">เลือกโซนที่ต้องการ <b>แสดง</b> ในหน้าเว็บ (ยกเลิกเลือก = ซ่อน ไม่แสดงกล้องและข้อมูลในโซนนั้น)</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="viz-zone-1" value="zone-1" checked> บ้านน้ำขุ่น
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="viz-zone-5" value="zone-5" checked> วัดทุ่งตาอิน
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="viz-zone-2" value="zone-2" checked> วัดกะทิง
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="viz-zone-3" value="zone-3" checked> วัดปึก
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" id="viz-zone-4" value="zone-4" checked> บ้านแตงเม
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeSettingsModal()">ปิด</button>
+        <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Run Fill Job Modal -->
+  <div class="modal-bg" id="run-fill-modal">
+    <div class="modal" style="max-width:680px">
+      <h2>▶️ รัน Fill Job</h2>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px">
+        สั่งรัน Fill Job ทันที — ระบบจะตรวจสอบชั่วโมงที่ข้อมูลว่างและอ่านค่าจาก snapshot มาเติม
+      </p>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <label style="font-size:14px;white-space:nowrap">ย้อนหลัง</label>
+        <select id="fill-hours-back" style="padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:14px">
+          <option value="24">24 ชั่วโมง (1 วัน)</option>
+          <option value="48">48 ชั่วโมง (2 วัน)</option>
+          <option value="72" selected>72 ชั่วโมง (3 วัน)</option>
+        </select>
+        <button id="run-fill-btn" class="btn btn-primary" onclick="startFillJob()" style="background:#16a34a">
+          ▶️ เริ่มรัน
+        </button>
+        <button class="btn btn-outline" onclick="closeRunFillModal()">ปิด</button>
+      </div>
+
+      <div id="fill-job-log"
+        style="background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px;font-size:13px;font-family:monospace;height:360px;overflow-y:auto;line-height:1.7;display:none">
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone Manager Modal -->
+  <div class="modal-bg" id="zone-manager-modal">
+    <div class="modal" style="max-width:760px">
+      <h2>🗺 จัดการโซนและกล้อง</h2>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px">เพิ่ม แก้ไข หรือลบโซนและกล้องในแต่ละโซน ค่าที่บันทึกจะมีผลกับหน้าเว็บหลักทันที</p>
+
+      <div id="zone-list-container" style="display:flex;flex-direction:column;gap:12px;max-height:480px;overflow-y:auto;margin-bottom:16px"></div>
+
+      <button class="btn btn-outline" onclick="addNewZone()" style="width:100%;margin-bottom:8px">➕ เพิ่มโซนใหม่</button>
+
+      <div id="zone-manager-log" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:13px;font-family:monospace;display:none"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeZoneManagerModal()">ปิด</button>
+        <button class="btn btn-primary" onclick="saveZones()">💾 บันทึกทั้งหมด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fill Log Modal — ประวัติการเติมค่าจาก snapshot -->
+  <div class="modal-bg" id="fill-log-modal">
+    <div class="modal" style="max-width:720px">
+      <h2>📋 Log การเติมค่าจาก Snapshot</h2>
+      <p style="color:#64748b;font-size:14px;margin-bottom:16px">
+        ประวัติการเติมค่าเมื่อสแกนสดไม่สำเร็จ ระบบจะเช็คทุก 5 นาที (เก็บย้อนหลัง 30 วัน)
+      </p>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <select id="fill-log-filter-cam" onchange="renderFillLog()" style="flex:1;min-width:140px">
+          <option value="">ทุกกล้อง</option>
+          <option value="CAM 2">CAM 2 — บ้านน้ำขุ่น</option>
+          <option value="CAM 4">CAM 4 — วัดกะทิง</option>
+          <option value="CAM 6">CAM 6 — วัดปึก</option>
+          <option value="CAM 8">CAM 8 — บ้านแตงเม</option>
+          <option value="CAM 10">CAM 10 — ทุ่งตาอิน</option>
+        </select>
+        <select id="fill-log-filter-status" onchange="renderFillLog()" style="flex:1;min-width:140px">
+          <option value="">ทุกสถานะ</option>
+          <option value="true">✅ สำเร็จ</option>
+          <option value="false">❌ ไม่สำเร็จ</option>
+        </select>
+        <button class="btn btn-outline" onclick="loadFillLog()">🔄 รีโหลด</button>
+      </div>
+
+      <div id="fill-log-body" style="max-height:420px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px">
+        <div style="padding:24px;text-align:center;color:#94a3b8">กำลังโหลด...</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeFillLogModal()">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-bg" id="modal">
+    <div class="modal">
+      <h2 id="modal-title">เพิ่มข้อมูลระดับน้ำ</h2>
+      <input type="hidden" id="edit-id">
+
+      <div class="form-group">
+        <label>โซน / พื้นที่</label>
+        <select id="f-zone">
+          <option value="บ้านน้ำขุ่น">บ้านน้ำขุ่น</option>
+          <option value="วัดกะทิง">วัดกะทิง</option>
+          <option value="วัดปึก">วัดปึก</option>
+          <option value="บ้านแตงเม">บ้านแตงเม</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>ชื่อกล้อง</label>
+        <select id="f-cam">
+          <option value="CAM 2">CAM 2</option>
+          <option value="CAM 4">CAM 4</option>
+          <option value="CAM 6">CAM 6</option>
+          <option value="CAM 8">CAM 8</option>
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label>ระดับน้ำ (เมตร)</label>
+          <input type="number" id="f-level" step="0.01" placeholder="เช่น 4.25">
+        </div>
+        <div class="form-group">
+          <label>ชั่วโมง</label>
+          <select id="f-hour">
+            <option value="">เลือกชั่วโมง</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>สถานะ</label>
+        <select id="f-status">
+          <option value="ระดับปกติ">ระดับปกติ</option>
+          <option value="เฝ้าระวัง">เฝ้าระวัง</option>
+          <option value="วิกฤต">วิกฤต</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>วันที่บันทึก</label>
+        <input type="date" id="f-date">
+      </div>
+
+      <div class="form-group">
+        <label>หมายเหตุ / คำอธิบาย</label>
+        <textarea id="f-note" rows="2" placeholder="ไม่บังคับ" style="resize:vertical"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal()">ยกเลิก</button>
+        <button class="btn btn-success" onclick="saveReading()">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allData = [];
+    let currentPage = 1;
+    const PAGE_SIZE = 20;
+
+    // โหลดข้อมูล
+    async function loadData() {
+      try {
+        const res = await fetch('/api/readings?limit=5000');
+        if (!res.ok) throw new Error('โหลดไม่ได้');
+        allData = await res.json();
+        allData.reverse(); // ล่าสุดก่อน
+        updateStats();
+        updateZoneFilter();
+        renderTable();
+      } catch (err) {
+        document.getElementById('table-body').innerHTML =
+          `<tr><td colspan="8" class="empty">❌ โหลดข้อมูลไม่ได้: ${err.message}</td></tr>`;
+      }
+    }
+
+    function updateStats() {
+      const today = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      document.getElementById('stat-total').textContent = allData.length;
+      document.getElementById('stat-today').textContent = allData.filter(r => r.dateStr === today).length;
+      const levels = allData.map(r => r.waterLevel).filter(v => v > 0);
+      document.getElementById('stat-avg').textContent = levels.length ? (levels.reduce((a, b) => a + b, 0) / levels.length).toFixed(2) : '—';
+      document.getElementById('stat-crisis').textContent = allData.filter(r => r.readStatus === 'วิกฤต').length;
+    }
+
+    function updateZoneFilter() {
+      const zones = [...new Set(allData.map(r => r.zoneName).filter(Boolean))];
+      const sel = document.getElementById('filter-zone');
+      sel.innerHTML = '<option value="">ทุกโซน</option>';
+      zones.forEach(z => {
+        const opt = document.createElement('option');
+        opt.value = z; opt.textContent = z;
+        sel.appendChild(opt);
+      });
+    }
+
+    function getFiltered() {
+      const search = document.getElementById('search').value.toLowerCase();
+      const zone = document.getElementById('filter-zone').value;
+      const status = document.getElementById('filter-status').value;
+      const date = document.getElementById('filter-date').value;
+
+      return allData.filter(r => {
+        if (search && !`${r.zoneName} ${r.camLabel} ${r.explanation}`.toLowerCase().includes(search)) return false;
+        if (zone && r.zoneName !== zone) return false;
+        if (status && r.readStatus !== status) return false;
+        if (date) {
+          const d = new Date(date);
+          const thDay = d.getDate();
+          const thaiMonths = ["มก.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+          const thDate = `${thDay} ${thaiMonths[d.getMonth()]}`;
+          if (r.dateStr !== thDate) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderTable() {
+      currentPage = 1;
+      renderPage();
+    }
+
+    function renderPage() {
+      const filtered = getFiltered();
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const slice = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+      const tbody = document.getElementById('table-body');
+
+      if (slice.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">ไม่พบข้อมูล</td></tr>';
+      } else {
+        tbody.innerHTML = slice.map(r => {
+          const badgeClass = r.readStatus === 'วิกฤต' ? 'badge-crisis' : r.readStatus === 'เฝ้าระวัง' ? 'badge-watch' : 'badge-normal';
+          return `
+          <tr style="cursor:pointer" onclick="toggleDetail('detail-${r.id}', this)">
+            <td>${r.recordedAt || r.dateStr || '—'}${r.fromSnapshot ? ' <span title="เติมจาก snapshot" style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;white-space:nowrap">📷 snapshot</span>' : ''}</td>
+            <td>${r.zoneName || '—'}</td>
+            <td>${r.camLabel || '—'}</td>
+            <td>${r.hour || '—'}</td>
+            <td><span class="level-num">${r.waterLevel != null ? r.waterLevel.toFixed(2) : '—'}</span> ม.</td>
+            <td><span class="badge ${badgeClass}">${r.readStatus || '—'}</span></td>
+            <td class="hide-mobile">${r.confidence ? (r.confidence * 100).toFixed(0) + '%' : '—'}</td>
+            <td>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteOne('${r.id}')">ลบ</button>
+            </td>
+          </tr>
+          <tr id="detail-${r.id}" style="display:none;background:#f8fafc">
+            <td colspan="8" style="padding:12px 16px;border-bottom:2px solid #e2e8f0">
+              <div style="font-size:14px;color:#1e293b;line-height:1.7">
+                <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:8px">
+                  <span><b>ระดับน้ำ:</b> <span style="color:#1e3a5f;font-weight:900;font-size:18px">${r.waterLevel != null ? r.waterLevel.toFixed(2) : '—'} ม.</span></span>
+                  <span><b>ความแม่นยำ:</b> ${r.confidence ? (r.confidence * 100).toFixed(0) + '%' : '—'}</span>
+                  <span><b>ชั่วโมง:</b> ${r.hour || '—'}</span>
+                  <span><b>วันที่:</b> ${r.dateStr || '—'}</span>
+                  ${r.fromSnapshot ? '<span style="color:#7c3aed"><b>📷 ที่มา:</b> เติมค่าจาก snapshot (สแกนสดไม่สำเร็จ)</span>' : ''}
+                </div>
+                ${r.explanation ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;color:#475569"><b>📝 คำอธิบาย AI:</b><br>${r.explanation}</div>` : '<div style="color:#94a3b8">ไม่มีคำอธิบาย</div>'}
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+      }
+
+      // Pagination
+      const pag = document.getElementById('pagination');
+      if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+      let html = '';
+      if (currentPage > 1) html += `<button class="page-btn" onclick="goPage(${currentPage - 1})">‹</button>`;
+
+      const start = Math.max(1, currentPage - 2);
+      const end = Math.min(totalPages, currentPage + 2);
+      if (start > 1) html += `<button class="page-btn" onclick="goPage(1)">1</button>${start > 2 ? '<span>...</span>' : ''}`;
+      for (let i = start; i <= end; i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+      }
+      if (end < totalPages) html += `${end < totalPages - 1 ? '<span>...</span>' : ''}<button class="page-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
+      if (currentPage < totalPages) html += `<button class="page-btn" onclick="goPage(${currentPage + 1})">›</button>`;
+
+      html += `<span style="color:#64748b;font-size:13px;margin-left:8px">${total} รายการ</span>`;
+      pag.innerHTML = html;
+    }
+
+    function goPage(p) { currentPage = p; renderPage(); window.scrollTo({ top: 0 }); }
+
+    // ลบรายการเดียว
+    async function deleteOne(id) {
+      if (!confirm('ลบรายการนี้?')) return;
+      try {
+        await fetch(`/api/readings/${id}`, { method: 'DELETE' });
+        allData = allData.filter(r => r.id !== id);
+        updateStats();
+        renderPage();
+      } catch (err) { alert('ลบไม่ได้: ' + err.message); }
+    }
+
+    // ลบทั้งหมด
+    async function deleteAll() {
+      if (!confirm('ลบข้อมูลทั้งหมด? ไม่สามารถกู้คืนได้')) return;
+      if (!confirm('ยืนยันอีกครั้ง — ลบทุกรายการ?')) return;
+      try {
+        await fetch('/api/readings', { method: 'DELETE' });
+        allData = [];
+        updateStats();
+        renderTable();
+      } catch (err) { alert('ลบไม่ได้: ' + err.message); }
+    }
+
+    // Modal
+    function openAddModal() {
+      document.getElementById('modal-title').textContent = 'เพิ่มข้อมูลระดับน้ำ';
+      document.getElementById('edit-id').value = '';
+      document.getElementById('f-level').value = '';
+      document.getElementById('f-note').value = '';
+      document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+    }
+
+    async function saveReading() {
+      const level = parseFloat(document.getElementById('f-level').value);
+      if (isNaN(level)) { alert('กรุณาใส่ระดับน้ำ'); return; }
+
+      const now = new Date(document.getElementById('f-date').value);
+      const thaiMonths = ["มก.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+      const pad = n => String(n).padStart(2, '0');
+
+      const payload = {
+        zoneName: document.getElementById('f-zone').value,
+        camLabel: document.getElementById('f-cam').value,
+        waterLevel: level,
+        readStatus: document.getElementById('f-status').value,
+        confidence: 1.0,
+        explanation: document.getElementById('f-note').value,
+        hour: document.getElementById('f-hour').value,
+        dateStr: `${now.getDate()} ${thaiMonths[now.getMonth()]}`,
+        recordedAt: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear() + 543} ${document.getElementById('f-hour').value}:00`,
+      };
+
+      try {
+        const res = await fetch('/api/readings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('บันทึกไม่ได้');
+        closeModal();
+        loadData();
+      } catch (err) { alert('บันทึกไม่ได้: ' + err.message); }
+    }
+
+    // Export CSV
+    function exportCSV() {
+      const filtered = getFiltered();
+      const headers = ['วันที่', 'โซน', 'กล้อง', 'ชั่วโมง', 'ระดับน้ำ (ม.)', 'สถานะ', 'ความแม่นยำ', 'คำอธิบาย'];
+      const rows = filtered.map(r => [
+        r.recordedAt || r.dateStr || '',
+        r.zoneName || '',
+        r.camLabel || '',
+        r.hour || '',
+        r.waterLevel != null ? r.waterLevel.toFixed(2) : '',
+        r.readStatus || '',
+        r.confidence ? (r.confidence * 100).toFixed(0) + '%' : '',
+        (r.explanation || '').replace(/,/g, ' ')
+      ]);
+
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `watpuek_readings_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    }
+
+    function clearFilters() {
+      document.getElementById('search').value = '';
+      document.getElementById('filter-zone').value = '';
+      document.getElementById('filter-status').value = '';
+      document.getElementById('filter-date').value = '';
+      renderTable();
+    }
+
+    // Populate hour select
+    const hourSel = document.getElementById('f-hour');
+    for (let h = 0; h < 24; h++) {
+      const opt = document.createElement('option');
+      opt.value = `${String(h).padStart(2, '0')}:00`;
+      opt.textContent = `${String(h).padStart(2, '0')}:00`;
+      hourSel.appendChild(opt);
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('modal').addEventListener('click', function (e) {
+      if (e.target === this) closeModal();
+    });
+
+
+    function toggleDetail(id, row) {
+      const detail = document.getElementById(id);
+      if (!detail) return;
+      const isOpen = detail.style.display !== 'none';
+      detail.style.display = isOpen ? 'none' : 'table-row';
+      row.style.background = isOpen ? '' : '#eef2ff';
+    }
+
+    // ─── Scan Modal ───────────────────────────────────────────────────────────
+    let selectedCams = [];
+
+    function openScanModal() {
+      selectedCams = [];
+      document.querySelectorAll('.cam-btn').forEach(b => b.style.background = '');
+      document.getElementById('scan-log').style.display = 'none';
+      document.getElementById('scan-log').textContent = '';
+      document.getElementById('scan-btn').disabled = false;
+      document.getElementById('scan-btn').textContent = '🚀 สแกนที่เลือก';
+      document.getElementById('scan-modal').classList.add('open');
+    }
+
+    function closeScanModal() {
+      document.getElementById('scan-modal').classList.remove('open');
+      loadData();
+    }
+
+    function toggleCam(btn, camId, camPath, camLabel, zoneName) {
+      const idx = selectedCams.findIndex(c => c.camId === camId);
+      if (idx === -1) {
+        selectedCams.push({ camId, camPath, camLabel, zoneName });
+        btn.style.background = '#1e3a5f';
+        btn.style.color = 'white';
+      } else {
+        selectedCams.splice(idx, 1);
+        btn.style.background = '';
+        btn.style.color = '';
+      }
+    }
+
+    function logScan(msg) {
+      const el = document.getElementById('scan-log');
+      el.style.display = 'block';
+      el.textContent += msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function runScan() {
+      if (selectedCams.length === 0) { alert('กรุณาเลือกกล้องอย่างน้อย 1 ตัว'); return; }
+      const secret = document.getElementById('scan-secret').value;
+      if (!secret) { alert('กรุณาใส่ Secret Key'); return; }
+
+      const btn = document.getElementById('scan-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ กำลังสแกน...';
+      document.getElementById('scan-log').textContent = '';
+
+      for (const cam of selectedCams) {
+        logScan(`📷 กำลังสแกน ${cam.camLabel} (${cam.zoneName})...`);
+        try {
+          const url = `/api/trigger-hourly-scan?secret=${encodeURIComponent(secret)}&camId=${cam.camId}&camPath=${encodeURIComponent(cam.camPath)}&zoneName=${encodeURIComponent(cam.zoneName)}&camLabel=${encodeURIComponent(cam.camLabel)}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.status === 'success') {
+            logScan(`✅ ${cam.camLabel}: ${data.data.waterLevel} ม. (${data.data.readStatus})`);
+          } else {
+            logScan(`❌ ${cam.camLabel}: ${data.message || 'ผิดพลาด'}`);
+          }
+        } catch (err) {
+          logScan(`❌ ${cam.camLabel}: ${err.message}`);
+        }
+        // รอ 2 วินาทีระหว่างกล้อง
+        if (selectedCams.indexOf(cam) < selectedCams.length - 1) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+
+      logScan('\n✅ สแกนเสร็จสิ้น — กดปิดเพื่อดูผลลัพธ์');
+      btn.textContent = '✅ เสร็จแล้ว';
+    }
+
+    document.getElementById('scan-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeScanModal();
+    });
+
+
+    // ─── Backup / Restore ─────────────────────────────────────────────────────
+    let backupMode = 'backup';
+
+    function backupToSheet() {
+      backupMode = 'backup';
+      document.getElementById('backup-title').textContent = '☁️ Backup ไป Google Sheets';
+      document.getElementById('backup-desc').textContent = `ดาวน์โหลด CSV แล้ว import เข้า Google Sheets (${allData.length} รายการ)`;
+      document.getElementById('backup-btn').textContent = '⬇ ดาวน์โหลด CSV';
+      document.getElementById('backup-btn').style.background = '#1d4ed8';
+      document.getElementById('backup-log').style.display = 'none';
+      document.getElementById('backup-log').textContent = '';
+      document.getElementById('import-area').style.display = 'none';
+      document.getElementById('backup-modal').classList.add('open');
+    }
+
+    function restoreFromSheet() {
+      backupMode = 'restore';
+      document.getElementById('backup-title').textContent = '⬆️ ดึงข้อมูลจาก Google Sheets';
+      document.getElementById('backup-desc').textContent = 'Export CSV จาก Google Sheets แล้ว import เข้าระบบ';
+      document.getElementById('backup-btn').textContent = '📂 เลือกไฟล์ CSV';
+      document.getElementById('backup-btn').style.background = '#0f766e';
+      document.getElementById('backup-log').style.display = 'none';
+      document.getElementById('backup-log').textContent = '';
+      document.getElementById('import-area').style.display = 'block';
+      document.getElementById('backup-modal').classList.add('open');
+    }
+
+    function closeBackupModal() {
+      document.getElementById('backup-modal').classList.remove('open');
+      loadData();
+    }
+
+    function logBackup(msg) {
+      const el = document.getElementById('backup-log');
+      el.style.display = 'block';
+      el.textContent += msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqT2ibMgeoc0YojqVWR1O12ffWvPQ4TvtTQApHoqyO_gudq9XHmjFY1O0tqyvsrHyFzA/exec';
+
+    async function doBackup() {
+      if (backupMode === 'backup') {
+        const btn = document.getElementById('backup-btn');
+        btn.disabled = true;
+        btn.textContent = '⏳ กำลัง backup...';
+        logBackup(`📤 กำลังส่ง ${allData.length} รายการไป Google Sheets...`);
+
+        try {
+          const rows = allData.map(r => [
+            r.recordedAt || r.dateStr || '',
+            r.dateStr || '',
+            r.hour || '',
+            r.zoneName || '',
+            r.camLabel || '',
+            r.waterLevel != null ? r.waterLevel.toFixed(2) : '',
+            r.readStatus || '',
+            r.confidence ? (r.confidence * 100).toFixed(0) + '%' : '',
+            r.explanation || ''
+          ]);
+
+          // ส่งผ่าน server.ts เป็นตัวกลาง
+          const res = await fetch('/api/backup-to-sheet', { method: 'POST' });
+          const result = await res.json();
+          if (result.status === 'success') {
+            logBackup(`✅ Backup สำเร็จ ${result.count} รายการ → Sheet: LOCAL_BACKUP`);
+          } else {
+            logBackup(`❌ ผิดพลาด: ${result.message}`);
+          }
+        } catch (err) {
+          logBackup(`❌ Error: ${err.message}`);
+        }
+
+        btn.disabled = false;
+        btn.textContent = '☁️ Backup อีกครั้ง';
+      }
+    }
+
+    async function importCSV(input) {
+      const file = input.files[0];
+      if (!file) return;
+      logBackup(`📂 กำลังอ่าน: ${file.name}`);
+
+      const text = await file.text();
+      const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim());
+      if (lines.length < 2) { logBackup('❌ ไฟล์ว่างเปล่า'); return; }
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 6) { skipped++; continue; }
+
+        const wl = parseFloat(cols[5]);
+        if (isNaN(wl)) { skipped++; continue; }
+
+        const payload = {
+          recordedAt: (cols[0] || '').replace(/"/g, '').trim(),
+          dateStr: (cols[1] || '').replace(/"/g, '').trim(),
+          hour: (cols[2] || '').replace(/"/g, '').trim(),
+          zoneName: (cols[3] || '').replace(/"/g, '').trim(),
+          camLabel: (cols[4] || '').replace(/"/g, '').trim(),
+          waterLevel: wl,
+          readStatus: (cols[6] || '').replace(/"/g, '').trim(),
+          confidence: parseFloat(cols[7]) / 100 || 0,
+          explanation: (cols[8] || '').replace(/"/g, '').trim(),
+        };
+
+        try {
+          await fetch('/api/readings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          imported++;
+        } catch { skipped++; }
+      }
+
+      logBackup(`✅ นำเข้าสำเร็จ ${imported} รายการ (ข้าม ${skipped})`);
+      loadData();
+    }
+
+    document.getElementById('backup-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeBackupModal();
+    });
+
+    loadData();
+
+    // ─── Settings Modal ────────────────────────────────────────────────────────
+    const CAM_MAP = {
+      cam2: { camId: 'cam2', camPath: 'cam2_480p', camLabel: 'CAM 2', zoneName: 'บ้านน้ำขุ่น' },
+      cam4: { camId: 'cam4', camPath: 'cam4_480p', camLabel: 'CAM 4', zoneName: 'วัดกะทิง' },
+      cam6: { camId: 'cam6', camPath: 'cam6_480p', camLabel: 'CAM 6', zoneName: 'วัดปึก' },
+      cam8: { camId: 'cam8', camPath: 'cam8_480p', camLabel: 'CAM 8', zoneName: 'บ้านแตงเม' },
+      cam10: { camId: 'cam10', camPath: 'cam10_480p', camLabel: 'CAM 10', zoneName: 'ทุ่งตาอิน' },
+    };
+
+    async function openSettingsModal() {
+      // โหลด config ปัจจุบัน
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        const saved = cfg.scanCams || [];
+        const savedIds = saved.map(c => c.camId);
+        // ถ้าไม่มีค่า ให้ tick ทุกตัว
+        const defaultAll = savedIds.length === 0;
+        ['cam2', 'cam4', 'cam6', 'cam8', 'cam10'].forEach(id => {
+          const el = document.getElementById('sc-' + id);
+          if (el) el.checked = defaultAll || savedIds.includes(id);
+        });
+        // โหลดสถานะการแสดงโซน (hiddenZones = array ของ zone id ที่ถูกซ่อน)
+        const hiddenZones = cfg.hiddenZones || [];
+        ['zone-1', 'zone-2', 'zone-3', 'zone-4', 'zone-5'].forEach(zoneId => {
+          const el = document.getElementById('viz-' + zoneId);
+          if (el) el.checked = !hiddenZones.includes(zoneId);
+        });
+      } catch { }
+      document.getElementById('settings-log').style.display = 'none';
+      document.getElementById('settings-modal').classList.add('open');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.remove('open');
+    }
+
+    async function saveSettings() {
+      const selected = ['cam2', 'cam4', 'cam6', 'cam8', 'cam10']
+        .filter(id => document.getElementById('sc-' + id)?.checked)
+        .map(id => CAM_MAP[id]);
+
+      if (selected.length === 0) {
+        alert('กรุณาเลือกกล้องอย่างน้อย 1 ตัว');
+        return;
+      }
+
+      // โซนที่ถูก uncheck = ซ่อน
+      const hiddenZones = ['zone-1', 'zone-2', 'zone-3', 'zone-4', 'zone-5']
+        .filter(zoneId => !document.getElementById('viz-' + zoneId)?.checked);
+
+      const log = document.getElementById('settings-log');
+      log.style.display = 'block';
+      log.textContent = '⏳ กำลังบันทึก...';
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scanCams: selected, hiddenZones })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          const hiddenNames = { 'zone-1': 'บ้านน้ำขุ่น', 'zone-2': 'วัดกะทิง', 'zone-3': 'วัดปึก', 'zone-4': 'บ้านแตงเม', 'zone-5': 'วัดทุ่งตาอิน' };
+          const hiddenText = hiddenZones.length > 0 ? `\nซ่อนโซน: ${hiddenZones.map(z => hiddenNames[z]).join(', ')}` : '\nแสดงทุกโซน';
+          log.textContent = `✅ บันทึกแล้ว — กล้องที่สแกน: ${selected.map(c => c.camLabel).join(', ')}${hiddenText}\nถ้าสแกนสดไม่สำเร็จ ระบบจะเช็คและเติมค่าจาก snapshot ให้อัตโนมัติทุก 5 นาที (ดูได้ที่ปุ่ม "Log การเติมค่า")`;
+        } else {
+          log.textContent = '❌ บันทึกไม่สำเร็จ';
+        }
+      } catch (err) {
+        log.textContent = '❌ Error: ' + err.message;
+      }
+    }
+
+    // ─── Fill Log Modal ────────────────────────────────────────────────────────
+    let fillLogData = [];
+
+    async function openFillLogModal() {
+      document.getElementById('fill-log-modal').classList.add('open');
+      await loadFillLog();
+    }
+
+    function closeFillLogModal() {
+      document.getElementById('fill-log-modal').classList.remove('open');
+    }
+
+    async function loadFillLog() {
+      const body = document.getElementById('fill-log-body');
+      body.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8">กำลังโหลด...</div>';
+      try {
+        const res = await fetch('/api/fill-log?limit=300');
+        fillLogData = await res.json();
+        renderFillLog();
+      } catch (err) {
+        body.innerHTML = `<div style="padding:24px;text-align:center;color:#ef4444">โหลดไม่สำเร็จ: ${err.message}</div>`;
+      }
+    }
+
+    function renderFillLog() {
+      const body = document.getElementById('fill-log-body');
+      const camFilter = document.getElementById('fill-log-filter-cam').value;
+      const statusFilter = document.getElementById('fill-log-filter-status').value;
+
+      let filtered = fillLogData;
+      if (camFilter) filtered = filtered.filter(e => e.camLabel === camFilter);
+      if (statusFilter === 'true') filtered = filtered.filter(e => e.success === true);
+      if (statusFilter === 'false') filtered = filtered.filter(e => e.success === false);
+
+      if (filtered.length === 0) {
+        body.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8">ไม่พบรายการ log</div>';
+        return;
+      }
+
+      body.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f8fafc;position:sticky;top:0">
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">เวลาที่เติม</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">กล้อง</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">ชั่วโมงที่ขาด</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">สถานะ</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">รายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(e => `
+              <tr style="border-bottom:1px solid #f1f5f9">
+                <td style="padding:8px 10px;white-space:nowrap;color:#64748b">${new Date(e.timestamp).toLocaleString('th-TH')}</td>
+                <td style="padding:8px 10px;white-space:nowrap">${e.camLabel || '—'}<br><span style="color:#94a3b8;font-size:11px">${e.zoneName || ''}</span></td>
+                <td style="padding:8px 10px;white-space:nowrap">${e.dateStr || ''} ${e.hour || ''}</td>
+                <td style="padding:8px 10px;white-space:nowrap">
+                  ${e.success
+                    ? `<span class="badge badge-normal">✅ สำเร็จ</span>`
+                    : `<span class="badge badge-crisis">❌ ไม่สำเร็จ</span>`}
+                </td>
+                <td style="padding:8px 10px;color:#475569">
+                  ${e.message || '—'}${e.waterLevel != null ? ` (${e.waterLevel.toFixed(2)} ม.)` : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('fill-log-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeFillLogModal();
+    });
+
+    // ─── Zone Manager Modal ───────────────────────────────────────────────────
+    let zoneData = [];
+
+    const INITIAL_ZONES_DEFAULT = [
+      { id: 'zone-1', name: 'บ้านน้ำขุ่น', cams: [
+        { id: 'cam1', label: 'CAM 1', camPath: 'cam1', status: 'connecting', location: 'บ้านน้ำขุ่น' },
+        { id: 'cam2', label: 'CAM 2', camPath: 'cam2', status: 'connecting', location: 'บ้านน้ำขุ่น' },
+      ]},
+      { id: 'zone-5', name: 'วัดทุ่งตาอิน', cams: [
+        { id: 'cam9', label: 'CAM 9', camPath: 'cam9', status: 'connecting', location: 'วัดทุ่งตาอิน' },
+        { id: 'cam10', label: 'CAM 10', camPath: 'cam10', status: 'connecting', location: 'วัดทุ่งตาอิน' },
+      ]},
+      { id: 'zone-2', name: 'วัดกะทิง', cams: [
+        { id: 'cam3', label: 'CAM 3', camPath: 'cam3', status: 'connecting', location: 'วัดกะทิง' },
+        { id: 'cam4', label: 'CAM 4', camPath: 'cam4', status: 'connecting', location: 'วัดกะทิง' },
+      ]},
+      { id: 'zone-3', name: 'วัดปึก', cams: [
+        { id: 'cam5', label: 'CAM 5', camPath: 'cam5', status: 'connecting', location: 'วัดปึก' },
+        { id: 'cam6', label: 'CAM 6', camPath: 'cam6', status: 'connecting', location: 'วัดปึก' },
+      ]},
+      { id: 'zone-4', name: 'บ้านแตงเม', cams: [
+        { id: 'cam7', label: 'CAM 7', camPath: 'cam7', status: 'connecting', location: 'บ้านแตงเม' },
+        { id: 'cam8', label: 'CAM 8', camPath: 'cam8', status: 'connecting', location: 'บ้านแตงเม' },
+      ]},
+    ];
+
+    async function openZoneManagerModal() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        zoneData = JSON.parse(JSON.stringify(
+          Array.isArray(cfg.zones) && cfg.zones.length > 0 ? cfg.zones : INITIAL_ZONES_DEFAULT
+        ));
+      } catch {
+        zoneData = JSON.parse(JSON.stringify(INITIAL_ZONES_DEFAULT));
+      }
+      renderZoneList();
+      document.getElementById('zone-manager-log').style.display = 'none';
+      document.getElementById('zone-manager-modal').classList.add('open');
+    }
+
+    function closeZoneManagerModal() {
+      document.getElementById('zone-manager-modal').classList.remove('open');
+    }
+
+    function renderZoneList() {
+      const container = document.getElementById('zone-list-container');
+      container.innerHTML = '';
+      zoneData.forEach((zone, zIdx) => {
+        const div = document.createElement('div');
+        div.style = 'border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#fafafa';
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:13px;color:#94a3b8;min-width:60px">ชื่อโซน</span>
+            <input type="text" value="${zone.name}" onchange="zoneData[${zIdx}].name=this.value"
+              style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px">
+            <span style="font-size:13px;color:#94a3b8">ID</span>
+            <input type="text" value="${zone.id}" onchange="zoneData[${zIdx}].id=this.value"
+              style="width:90px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:monospace">
+            <button onclick="deleteZone(${zIdx})" style="padding:4px 8px;background:#fee2e2;color:#dc2626;border:none;border-radius:6px;cursor:pointer;font-size:13px">🗑</button>
+          </div>
+          <div style="margin-left:8px">
+            <div style="font-size:12px;color:#64748b;margin-bottom:6px">กล้องในโซนนี้:</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${zone.cams.map((cam, cIdx) => `
+                <div style="display:flex;align-items:center;gap:6px;background:white;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;flex-wrap:wrap">
+                  <input type="text" placeholder="Label" value="${cam.label}" onchange="zoneData[${zIdx}].cams[${cIdx}].label=this.value"
+                    style="width:90px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px">
+                  <input type="text" placeholder="camPath" value="${cam.camPath}" onchange="zoneData[${zIdx}].cams[${cIdx}].camPath=this.value"
+                    style="width:110px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;font-family:monospace">
+                  <input type="text" placeholder="cam id" value="${cam.id}" onchange="zoneData[${zIdx}].cams[${cIdx}].id=this.value"
+                    style="width:80px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;font-family:monospace">
+                  <input type="text" placeholder="ที่ตั้ง" value="${cam.location || ''}" onchange="zoneData[${zIdx}].cams[${cIdx}].location=this.value"
+                    style="flex:1;min-width:100px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px">
+                  <button onclick="deleteCam(${zIdx},${cIdx})" style="padding:3px 7px;background:#fee2e2;color:#dc2626;border:none;border-radius:4px;cursor:pointer;font-size:12px">🗑</button>
+                </div>
+              `).join('')}
+            </div>
+            <button onclick="addCam(${zIdx})" style="margin-top:6px;padding:4px 10px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:6px;cursor:pointer;font-size:12px">➕ เพิ่มกล้อง</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addNewZone() {
+      const newId = 'zone-' + Date.now();
+      zoneData.push({ id: newId, name: 'โซนใหม่', cams: [] });
+      renderZoneList();
+    }
+
+    function deleteZone(zIdx) {
+      if (!confirm('ลบโซน "' + zoneData[zIdx].name + '" และกล้องทั้งหมดในโซนนี้?')) return;
+      zoneData.splice(zIdx, 1);
+      renderZoneList();
+    }
+
+    function addCam(zIdx) {
+      const ts = Date.now();
+      zoneData[zIdx].cams.push({
+        id: 'cam' + ts,
+        label: 'CAM ใหม่',
+        camPath: 'cam' + ts,
+        status: 'connecting',
+        location: zoneData[zIdx].name,
+      });
+      renderZoneList();
+    }
+
+    function deleteCam(zIdx, cIdx) {
+      zoneData[zIdx].cams.splice(cIdx, 1);
+      renderZoneList();
+    }
+
+    async function saveZones() {
+      const log = document.getElementById('zone-manager-log');
+      log.style.display = 'block';
+      log.textContent = '⏳ กำลังบันทึก...';
+      try {
+        const res = await fetch('/api/zones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zones: zoneData }),
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          const totalCams = zoneData.reduce((s, z) => s + z.cams.length, 0);
+          log.textContent = `✅ บันทึก ${zoneData.length} โซน (${totalCams} กล้อง) สำเร็จ — รีเฟรชหน้าเว็บหลักเพื่อดูการเปลี่ยนแปลง`;
+        } else {
+          log.textContent = '❌ บันทึกไม่สำเร็จ';
+        }
+      } catch (err) {
+        log.textContent = '❌ Error: ' + err.message;
+      }
+    }
+
+    document.getElementById('zone-manager-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeZoneManagerModal();
+    });
+
+    // ─── Run Fill Job Modal ───────────────────────────────────────────────────
+    function openRunFillModal() {
+      document.getElementById('fill-job-log').style.display = 'none';
+      document.getElementById('fill-job-log').innerHTML = '';
+      document.getElementById('run-fill-btn').disabled = false;
+      document.getElementById('run-fill-btn').textContent = '▶️ เริ่มรัน';
+      document.getElementById('run-fill-modal').classList.add('open');
+    }
+
+    function closeRunFillModal() {
+      document.getElementById('run-fill-modal').classList.remove('open');
+    }
+
+    async function startFillJob() {
+      const hoursBack = parseInt(document.getElementById('fill-hours-back').value);
+      const logEl = document.getElementById('fill-job-log');
+      const btn = document.getElementById('run-fill-btn');
+
+      logEl.style.display = 'block';
+      logEl.innerHTML = '';
+      btn.disabled = true;
+      btn.textContent = '⏳ กำลังรัน...';
+
+      const appendLog = (type, message, time) => {
+        const color = type === 'success' ? '#4ade80' : type === 'error' ? '#f87171' : type === 'warn' ? '#fbbf24' : '#94a3b8';
+        const prefix = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warn' ? '⚠️' : 'ℹ️';
+        logEl.innerHTML += `<div style="color:${color}">[${time}] ${prefix} ${message}</div>`;
+        logEl.scrollTop = logEl.scrollHeight;
+      };
+
+      try {
+        const res = await fetch('/api/run-fill-job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hoursBack }),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const { type, message, time } = JSON.parse(line.slice(6));
+                appendLog(type, message, time);
+              } catch {}
+            }
+          }
+        }
+      } catch (err) {
+        appendLog('error', 'เชื่อมต่อ server ไม่ได้: ' + err.message, new Date().toLocaleTimeString('th-TH'));
+      }
+
+      btn.disabled = false;
+      btn.textContent = '▶️ รันอีกครั้ง';
+    }
+
+    document.getElementById('run-fill-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeRunFillModal();
+    });
+
+  </script>
+</body>
+
+</html>

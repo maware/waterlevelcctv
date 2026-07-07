@@ -1,0 +1,65 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- Preconnect: เร่งการเชื่อมต่อไปยัง server สตรีมกล้องล่วงหน้า ลดเวลาโหลดครั้งแรก -->
+  <link rel="preconnect" href="https://webrtc.watpuekwater.org" />
+  <link rel="dns-prefetch" href="https://webrtc.watpuekwater.org" />
+  <!-- Google tag (gtag.js) -->
+  <link rel="canonical" href="https://cam.watpuekwater.org/" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-J3TLGXW2DJ"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-J3TLGXW2DJ');
+  </script>
+<script>
+  (function () {
+    var DESIGN_WIDTH = 2200;
+    var isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = isApple
+      ? 'width=900, initial-scale=0.18, minimum-scale=0.18, maximum-scale=1.0, user-scalable=yes'
+      : 'width=device-width, initial-scale=1.0';
+    document.head.appendChild(meta);
+
+    if (!isApple) {
+      var applyZoom = function () {
+        var scale = Math.min(1, window.innerWidth / DESIGN_WIDTH);
+        document.documentElement.style.zoom = scale;
+      };
+      document.addEventListener('DOMContentLoaded', applyZoom);
+      window.addEventListener('resize', applyZoom);
+      applyZoom();
+    }
+  })();
+</script>
+
+  <!-- SEO Meta Tags -->
+  <title>วัดปึก แจ้งระดับน้ำ</title>
+  <meta name="robots" content="index, follow, max-snippet:200" />
+  <meta name="description"
+    content="วัดปึกแจ้งระดับน้ำ ระบบติดตามระดับน้ำแบบเรียลไทม์ วัดปึก ตำบลวังแซ้ม อำเภอมะขาม จังหวัดจันทบุรี ดูกล้องวงจรปิดและระดับน้ำ บ้านน้ำขุ่น วัดกะทิง วัดปึก บ้านแตงเม" />
+  <meta name="keywords"
+    content="วัดปึกแจ้งระดับน้ำ, วัดปึก แจ้งระดับน้ำ, ระดับน้ำวัดปึก, น้ำท่วมจันทบุรี, วังแซ้ม มะขาม จันทบุรี, กล้องวงจรปิดระดับน้ำ, watpuek water level" />
+  <meta name="author" content="วัดปึก ตำบลวังแซ้ม" />
+
+  <!-- Open Graph (แสดงผลเมื่อแชร์ใน Facebook/Line) -->
+  <meta property="og:title" content="วัดปึก แจ้งระดับน้ำ" />
+  <meta property="og:description"
+    content="วัดปึกแจ้งระดับน้ำ ระบบติดตามระดับน้ำแบบเรียลไทม์ 4 จุด บ้านน้ำขุ่น วัดกะทิง วัดปึก บ้านแตงเม ตำบลวังแซ้ม จังหวัดจันทบุรี" />
+  <meta property="og:url" content="https://cam.watpuekwater.org" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="th_TH" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

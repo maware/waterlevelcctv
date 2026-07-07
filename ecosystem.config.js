@@ -1,0 +1,1 @@
+module.exports = { apps: [ { name: "mediamtx", script: "C:\\mediamtx\\mediamtx.exe", args: "C:\\mediamtx\\mediamtx.yml", watch: false, windowsHide: true }, { name: "watpuek-cam", script: "C:\\Users\\User\\AppData\\Roaming\\npm\\node_modules\\tsx\\dist\\cli.mjs", args: "C:\\web\\server.ts", watch: false, windowsHide: true, cwd: "C:\\web" } ] }

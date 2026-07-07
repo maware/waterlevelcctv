@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MJPEG Test — วัดปึก</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0f1a;
+    color: #e2e8f0;
+    font-family: 'Angsana New', 'Sarabun', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 900;
+    color: #38bdf8;
+    margin-bottom: 6px;
+  }
+
+  p.sub {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 24px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+
+  .controls label {
+    font-size: 18px;
+    color: #94a3b8;
+  }
+
+  .controls input {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 16px;
+    padding: 8px 12px;
+    width: 360px;
+    outline: none;
+    font-family: monospace;
+  }
+
+  .controls input:focus {
+    border-color: #38bdf8;
+  }
+
+  .controls button {
+    background: #0284c7;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 8px 20px;
+    transition: background 0.15s;
+  }
+
+  .controls button:hover { background: #0369a1; }
+  .controls button.stop { background: #dc2626; }
+  .controls button.stop:hover { background: #b91c1c; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+    gap: 16px;
+  }
+
+  .cam-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .cam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #1e293b;
+  }
+
+  .cam-title {
+    font-size: 22px;
+    font-weight: 900;
+    color: #f1f5f9;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #64748b;
+  }
+
+  .dot.online { background: #22c55e; animation: pulse 1.5s infinite; }
+  .dot.error  { background: #ef4444; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .cam-body {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cam-body img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .cam-body .placeholder {
+    color: #334155;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .cam-footer {
+    padding: 8px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    color: #64748b;
+    font-family: monospace;
+  }
+
+  .delay-badge {
+    background: #1e293b;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 14px;
+    color: #38bdf8;
+    font-weight: 700;
+  }
+
+  .add-cam {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #0f172a;
+    border: 1px dashed #1e293b;
+    border-radius: 12px;
+    align-items: center;
+  }
+
+  .add-cam input {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 16px;
+    padding: 8px 12px;
+    outline: none;
+    font-family: monospace;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .add-cam input:focus { border-color: #38bdf8; }
+
+  .note {
+    background: #1e293b;
+    border-left: 3px solid #f59e0b;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 18px;
+    color: #fcd34d;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .note strong { color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<h1>🎥 MJPEG Stream Test — วัดปึก</h1>
+<p class="sub">ทดสอบการรับสัญญาณ MJPEG จาก MediaMTX ผ่าน HTTP — delay ต่ำกว่า HLS</p>
+
+<div class="note">
+  <strong>วิธีใช้:</strong> ใส่ URL ของ MJPEG stream จาก MediaMTX เช่น<br>
+  <code>http://&lt;windows-server-ip&gt;:8889/cam1/stream</code><br>
+  หรือถ้า MediaMTX เปิด MJPEG ไว้ที่ port 8888:<br>
+  <code>http://&lt;windows-server-ip&gt;:8888/cam1/stream.mjpeg</code><br>
+  <br>
+  <strong>ถ้ายังไม่ได้เปิด MJPEG บน MediaMTX</strong> — ดูคำสั่ง FFmpeg ด้านล่าง
+</div>
+
+<!-- Server base URL -->
+<div class="controls">
+  <label>Server base URL:</label>
+  <input type="text" id="baseUrl" value="http://localhost:8889" placeholder="http://192.168.x.x:8889" />
+  <button onclick="loadAll()">โหลดทุกกล้อง</button>
+  <button class="stop" onclick="stopAll()">หยุดทั้งหมด</button>
+</div>
+
+<!-- เพิ่มกล้องเอง -->
+<div class="add-cam">
+  <span style="font-size:18px;color:#94a3b8;white-space:nowrap">เพิ่มกล้อง:</span>
+  <input type="text" id="newCamId" placeholder="cam path เช่น cam1_480p" />
+  <input type="text" id="newCamLabel" placeholder="ชื่อ เช่น CAM 1 บ้านน้ำขุ่น" />
+  <button onclick="addCam()">+ เพิ่ม</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<!-- FFmpeg command reference -->
+<div style="margin-top:32px; padding:16px; background:#0f172a; border:1px solid #1e293b; border-radius:12px;">
+  <p style="font-size:20px; font-weight:900; color:#38bdf8; margin-bottom:12px">🔧 ถ้า MediaMTX ยังไม่ได้เปิด MJPEG — รัน FFmpeg บน Windows Server</p>
+  <p style="font-size:16px; color:#94a3b8; margin-bottom:8px">รัน 1 process ต่อ 1 กล้อง:</p>
+  <pre style="background:#020617;padding:16px;border-radius:8px;font-size:15px;color:#86efac;overflow-x:auto">ffmpeg -i rtsp://100.93.6.53:8554/cam1 -f mjpeg -q:v 5 -r 15 -vf scale=854:480 pipe:1</pre>
+  <p style="font-size:16px; color:#94a3b8; margin-top:12px">หรือถ้าเปิด MJPEG ใน mediamtx.yml เพิ่ม:</p>
+  <pre style="background:#020617;padding:16px;border-radius:8px;font-size:15px;color:#86efac;overflow-x:auto">paths:
+  cam1:
+    source: rtsp://100.93.6.53:8554/cam1
+
+# เปิด HTTP server (ที่ port 8889 มี /stream endpoint อยู่แล้ว)</pre>
+</div>
+
+<script>
+  // กล้องเริ่มต้น
+  let cameras = [
+    { id: 'cam1_480p',  label: 'CAM 1 — บ้านน้ำขุ่น' },
+    { id: 'cam2_480p',  label: 'CAM 2 — บ้านน้ำขุ่น' },
+    { id: 'cam3_480p',  label: 'CAM 3 — วัดกะทิง' },
+    { id: 'cam4_480p',  label: 'CAM 4 — วัดกะทิง' },
+    { id: 'cam5_480p',  label: 'CAM 5 — วัดปึก' },
+    { id: 'cam6_480p',  label: 'CAM 6 — วัดปึก' },
+    { id: 'cam7_480p',  label: 'CAM 7 — บ้านแตงเม' },
+    { id: 'cam8_480p',  label: 'CAM 8 — บ้านแตงเม' },
+    { id: 'cam501',     label: 'CAM 501 — วัดปึก (พิเศษ)' },
+  ];
+
+  const timers = {};
+
+  function getBaseUrl() {
+    return document.getElementById('baseUrl').value.replace(/\/$/, '');
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    cameras.forEach(cam => {
+      const card = document.createElement('div');
+      card.className = 'cam-card';
+      card.id = 'card-' + cam.id;
+      card.innerHTML = `
+        <div class="cam-header">
+          <span class="cam-title">${cam.label}</span>
+          <div class="status">
+            <div class="dot" id="dot-${cam.id}"></div>
+            <span id="status-${cam.id}" style="font-size:16px">รอเชื่อมต่อ</span>
+          </div>
+        </div>
+        <div class="cam-body">
+          <img id="img-${cam.id}" style="display:none" />
+          <div class="placeholder" id="ph-${cam.id}">กด "โหลดทุกกล้อง" หรือกดโหลดเดี่ยว</div>
+        </div>
+        <div class="cam-footer">
+          <span style="font-family:monospace;font-size:13px">${getBaseUrl()}/${cam.id}/stream</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="delay-badge" id="delay-${cam.id}">—</span>
+            <button onclick="loadCam('${cam.id}')" style="background:#0284c7;border:none;border-radius:6px;color:white;cursor:pointer;font-size:14px;padding:4px 10px">โหลด</button>
+            <button onclick="stopCam('${cam.id}')" style="background:#dc2626;border:none;border-radius:6px;color:white;cursor:pointer;font-size:14px;padding:4px 10px">หยุด</button>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function loadCam(camId) {
+    const base = getBaseUrl();
+    const url = `${base}/${camId}/stream`;
+    const img = document.getElementById('img-' + camId);
+    const ph  = document.getElementById('ph-' + camId);
+    const dot = document.getElementById('dot-' + camId);
+    const statusEl = document.getElementById('status-' + camId);
+    const delayEl = document.getElementById('delay-' + camId);
+
+    if (!img) return;
+
+    // เพิ่ม timestamp เพื่อหลีกเลี่ยง cache
+    const ts = Date.now();
+    const t0 = performance.now();
+
+    img.onload = () => {
+      ph.style.display = 'none';
+      img.style.display = 'block';
+      dot.className = 'dot online';
+      statusEl.textContent = 'ออนไลน์';
+      const delay = Math.round(performance.now() - t0);
+      delayEl.textContent = delay + ' ms';
+    };
+
+    img.onerror = () => {
+      dot.className = 'dot error';
+      statusEl.textContent = 'เชื่อมต่อไม่ได้';
+      img.style.display = 'none';
+      ph.style.display = '';
+      ph.textContent = '❌ ไม่พบ stream — ตรวจสอบ URL และ MediaMTX';
+    };
+
+    img.src = url + '?t=' + ts;
+
+    // refresh ทุก 100ms สำหรับ MJPEG แบบ pull (snapshot mode)
+    // ถ้า MediaMTX ส่ง multipart/x-mixed-replace จะ auto-update เอง ไม่ต้อง refresh
+    // แต่ถ้าเป็น snapshot endpoint ต้อง refresh loop
+    if (timers[camId]) clearInterval(timers[camId]);
+    // ลองดูก่อนว่า stream แบบ push ทำงานไหม ถ้าไม่ทำ uncomment ด้านล่าง
+    // timers[camId] = setInterval(() => {
+    //   img.src = url + '?t=' + Date.now();
+    // }, 100);
+  }
+
+  function stopCam(camId) {
+    if (timers[camId]) { clearInterval(timers[camId]); delete timers[camId]; }
+    const img = document.getElementById('img-' + camId);
+    const ph  = document.getElementById('ph-' + camId);
+    const dot = document.getElementById('dot-' + camId);
+    const statusEl = document.getElementById('status-' + camId);
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    if (ph)  { ph.style.display = ''; ph.textContent = 'หยุดแล้ว'; }
+    if (dot) dot.className = 'dot';
+    if (statusEl) statusEl.textContent = 'หยุด';
+  }
+
+  function loadAll() {
+    renderGrid(); // re-render เพื่ออัพเดต URL ใน footer
+    cameras.forEach(cam => loadCam(cam.id));
+  }
+
+  function stopAll() {
+    cameras.forEach(cam => stopCam(cam.id));
+  }
+
+  function addCam() {
+    const id    = document.getElementById('newCamId').value.trim();
+    const label = document.getElementById('newCamLabel').value.trim();
+    if (!id) return alert('ใส่ cam path ก่อน');
+    cameras.push({ id, label: label || id });
+    renderGrid();
+    loadCam(id);
+    document.getElementById('newCamId').value = '';
+    document.getElementById('newCamLabel').value = '';
+  }
+
+  // render ตอนโหลดหน้า
+  renderGrid();
+</script>
+</body>
+</html>

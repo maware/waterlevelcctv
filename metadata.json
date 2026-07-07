@@ -1,0 +1,6 @@
+{
+  "name": "ระบบกล้องวงจรปิด วัดปึก",
+  "description": "ระบบควบคุมและรับชมกล้องวงจรปิดวัดปึกผ่าน WebRTC WHEP และ MediaMTX ด้วยสถาปัตยกรรม Tailscale และ Cloudflare Tunnel",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
