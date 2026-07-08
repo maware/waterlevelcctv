@@ -440,7 +440,24 @@ function HourlyTelemetryTable({
   // Precalculate levels for all hours 0 to 24
   const hourlyLevels: Record<number, number | null> = {};
   for (let h = 0; h <= 24; h++) {
-    const sheetTodayHourMatch = matchedSheetReadingsTarget.find(sr => getHourNumber(sr.hour) === h);
+    // เรียงตาม recordedAt ล่าสุดก่อน แล้วเอาตัวแรก = ล่าสุดของชั่วโมงนั้น
+    const hourMatches = matchedSheetReadingsTarget
+      .filter(sr => getHourNumber(sr.hour) === h)
+      .sort((a, b) => {
+        const toTs = (r: any) => {
+          try {
+            const parts = (r.recordedAt || '').split(' ');
+            if (parts.length >= 2) {
+              const [d, mo, y] = parts[0].split('/').map(Number);
+              const [hh, mm, ss] = parts[1].split(':').map(Number);
+              return new Date(y - 543, mo - 1, d, hh, mm, ss || 0).getTime();
+            }
+          } catch {}
+          return 0;
+        };
+        return toTs(b) - toTs(a); // ล่าสุดก่อน
+      });
+    const sheetTodayHourMatch = hourMatches[0]; // เอาตัวล่าสุด
     let level: number | null = null;
     const hourKey = `${zone.id}_${h}`;
     const savedReading = hourlyReadings ? hourlyReadings[hourKey] : undefined;
@@ -3077,7 +3094,21 @@ export default function App() {
               const readings = [];
               for (let h = 0; h < 24; h++) {
                 if (offset === 0 && h > new Date().getHours()) continue; // ข้ามชั่วโมงที่เป็นอนาคตสำหรับวันนี้
-                const hourlyMatch = matchedSheetReadings.find(sr => getHourNumber(sr.hour) === h);
+                // เรียงล่าสุดก่อน แล้วเอาตัวแรก
+                const toTs = (r: any) => {
+                  try {
+                    const parts = (r.recordedAt || '').split(' ');
+                    if (parts.length >= 2) {
+                      const [d, mo, y] = parts[0].split('/').map(Number);
+                      const [hh, mm, ss] = parts[1].split(':').map(Number);
+                      return new Date(y - 543, mo - 1, d, hh, mm, ss || 0).getTime();
+                    }
+                  } catch {}
+                  return 0;
+                };
+                const hourlyMatch = matchedSheetReadings
+                  .filter(sr => getHourNumber(sr.hour) === h)
+                  .sort((a, b) => toTs(b) - toTs(a))[0];
                 if (hourlyMatch) {
                   readings.push({
                     hour: h,

@@ -33,24 +33,25 @@ Return ONLY JSON (no markdown):
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
 
 // Prompt สำหรับ Ollama (llava, moondream)
-const WATER_PROMPT_OLLAMA = `You are a water level reading assistant. Look at this CCTV image of a water gauge in a canal. The gauge is a yellow ruler with black numbers printed on it.
+const WATER_PROMPT_OLLAMA = `Look at this image. Find a yellow ruler/gauge with decimal numbers like 4.01, 4.02, 4.03 printed on it.
 
-TASK: Read the actual numbers printed on the gauge ruler visible in this image.
+Step 1: Do you see a yellow ruler with numbers? If NO → return {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"no gauge found","detectedMarkings":[]}
 
-RULES:
-1. Find the yellow ruler/gauge with numbers printed on it in the image.
-2. Scan numbers from top to bottom of the gauge.
-3. The BOTTOM EDGE of the image is a CUT LINE — numbers partially cut off at bottom are INCOMPLETE.
-4. Only count numbers where ALL digits are fully visible.
-5. From all fully visible complete numbers, select the LOWEST value as the water level.
-6. Example of how to read: if you see numbers 2.50, 2.49, 2.48 fully visible → water level is 2.48 (lowest).
-7. If you cannot see any gauge or numbers clearly, set gaugeFound to false.
+Step 2: If YES → list every number you can fully read (all digits visible, not blurry, not cut off at image edge).
 
-Return ONLY valid JSON, no other text before or after:
-{"waterLevel":2.48,"confidence":0.90,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"saw numbers 2.50 2.49 2.48 on yellow gauge","detectedMarkings":["2.50","2.49","2.48"]}
+Step 3: From your list, pick the LOWEST number. That is the water level.
 
-readStatus: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
-Replace 2.48 and example values above with the ACTUAL numbers you see in THIS image.`;
+Important:
+- If you see text words (not numbers), ignore them.
+- If a number is blurry or cut off at the bottom edge, do NOT include it.
+- Do NOT guess or make up numbers.
+- The lowest number = water touching that mark.
+
+Return ONLY this JSON (no extra text):
+{"waterLevel":4.01,"confidence":0.85,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"numbers seen: 4.03 4.02 4.01, lowest is 4.01","detectedMarkings":["4.03","4.02","4.01"]}
+
+readStatus: below 4.10 = "ระดับปกติ", 4.10-4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
+Use ONLY numbers actually visible in the image. Replace example values with real ones.`;
 
 // ใช้ prompt ตามประเภท provider
 const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
