@@ -1027,7 +1027,11 @@
       const btn = document.getElementById('scan-btn');
       btn.disabled = true;
       btn.textContent = '⏳ กำลังสแกน...';
-      document.getElementById('scan-log').textContent = '';
+
+      // reset log
+      const scanLog = document.getElementById('scan-log');
+      scanLog.textContent = '';
+      scanLog.style.display = 'block';
 
       // โหลด config เพื่อรู้ว่าใช้ AI ตัวไหน
       let currentProvider = 'gemini';
@@ -1067,7 +1071,8 @@
 
       logScan(`─────────────────────────────`);
       logScan('✅ สแกนเสร็จสิ้น — กดปิดเพื่อดูผลลัพธ์');
-      btn.textContent = '✅ เสร็จแล้ว';
+      btn.disabled = false;
+      btn.textContent = '🚀 สแกนอีกครั้ง';
     }
 
     document.getElementById('scan-modal').addEventListener('click', function (e) {

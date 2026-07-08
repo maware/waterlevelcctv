@@ -17,7 +17,8 @@ dotenv.config();
 const GEMINI_PRIMARY = "gemini-2.5-flash";
 const GEMINI_FALLBACK = "gemini-3.1-flash-lite";
 
-const WATER_PROMPT = `You are an expert AI Water Level Assistant for 'วัดปึก แจ้งระดับน้ำ'. Analyze this CCTV picture of a water level staff gauge in a canal.
+// Prompt สำหรับ Gemini — เข้าใจ example ได้ดี
+const WATER_PROMPT_GEMINI = `You are an expert AI Water Level Assistant for 'วัดปึก แจ้งระดับน้ำ'. Analyze this CCTV picture of a water level staff gauge in a canal.
 CRITICAL RULES:
 1. Scan ALL visible numbers on the gauge from top to bottom of image
 2. List every number you can see completely
@@ -30,6 +31,27 @@ CRITICAL RULES:
 Return ONLY JSON (no markdown):
 {"waterLevel":4.81,"confidence":0.95,"gaugeFound":true,"readStatus":"เฝ้าระวัง","explanation":"...","detectedMarkings":["4.81","4.82","4.83","4.84","4.85"]}
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
+
+// Prompt สำหรับ Ollama (llava, moondream) — ไม่ใส่ตัวเลขตัวอย่างเพราะ hallucinate
+const WATER_PROMPT_OLLAMA = `You are a water level reading assistant. Look at this CCTV image of a water gauge in a canal.
+
+TASK: Read the numbers printed on the gauge ruler in the image.
+
+RULES:
+1. Look carefully at the actual image. Find the ruler/gauge with numbers on it.
+2. Read ONLY numbers that are physically printed and visible in this image.
+3. Do NOT invent, guess, or use any numbers not visible in the image.
+4. The bottom edge of the image cuts off numbers - only count numbers fully visible.
+5. From fully visible numbers, select the LOWEST as the water level.
+6. If no gauge is visible, set gaugeFound to false and waterLevel to null.
+
+Return ONLY this JSON format with no other text:
+{"waterLevel":ACTUAL_NUMBER_OR_null,"confidence":0.0_TO_1.0,"gaugeFound":true_OR_false,"readStatus":"ระดับปกติ_OR_เฝ้าระวัง_OR_วิกฤต","explanation":"what you see","detectedMarkings":["LIST","OF","ACTUAL","NUMBERS","SEEN"]}
+
+readStatus rules: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"`;
+
+// ใช้ prompt ตามประเภท provider
+const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
 
 // ─── Local data storage ───────────────────────────────────────────────────────
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -130,13 +152,13 @@ async function geminiOCR(ai: GoogleGenAI, imagePart: any): Promise<any> {
   try {
     const r = await ai.models.generateContent({
       model: GEMINI_PRIMARY,
-      contents: [imagePart, WATER_PROMPT],
+      contents: [imagePart, WATER_PROMPT_GEMINI],
     });
     return JSON.parse((r.text || "{}").replace(/```json|```/g, "").trim());
   } catch {
     const r = await ai.models.generateContent({
       model: GEMINI_FALLBACK,
-      contents: [imagePart, WATER_PROMPT],
+      contents: [imagePart, WATER_PROMPT_GEMINI],
     });
     return JSON.parse((r.text || "{}").replace(/```json|```/g, "").trim());
   }
@@ -150,7 +172,7 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      prompt: WATER_PROMPT,
+      prompt: WATER_PROMPT_OLLAMA,
       images: [imageBase64],
       stream: false,
     }),
