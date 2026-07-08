@@ -896,7 +896,9 @@ export default function App() {
     explanation: string,
     confidence: number,
     zoneId: string,
-    hourNum: number
+    hourNum: number,
+    aiProvider?: string,
+    aiModel?: string,
   ) => {
     const now = new Date();
     const thaiMonths = ["มก.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -910,7 +912,9 @@ export default function App() {
       confidence,
       hour: `${pad(hourNum)}:00`,
       dateStr: `${now.getDate()} ${thaiMonths[now.getMonth()]}`,
-      recordedAt: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+      recordedAt: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+      aiProvider: aiProvider || 'gemini',
+      aiModel: aiModel || '',
     };
     try {
       const res = await fetch('/api/readings', {
@@ -1018,7 +1022,9 @@ export default function App() {
         readStatus: data.readStatus,
         explanation: data.explanation,
         imageUrl: liveCapture || testUrl || mockImageForCam(camera.id) || "uploaded",
-        timestamp: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+        aiProvider: data.aiProvider || 'gemini',
+        aiModel: data.aiModel || '',
       };
 
       setAiLogs((prev: any) => {
@@ -1037,7 +1043,9 @@ export default function App() {
           data.explanation,
           data.confidence,
           zone.id,
-          new Date().getHours()
+          new Date().getHours(),
+          data.aiProvider,
+          data.aiModel,
         );
       }
 
@@ -1133,7 +1141,9 @@ export default function App() {
           simulatedResult.explanation,
           simulatedResult.confidence,
           zone.id,
-          new Date().getHours()
+          new Date().getHours(),
+          'simulation',
+          'local-fallback',
         );
       }
 
@@ -2976,6 +2986,16 @@ export default function App() {
                                 }`}>
                                   {log.readStatus}
                                 </span>
+                                {log.aiProvider === 'ollama' && (
+                                  <span className="px-1.5 py-0.5 text-[9px] rounded font-bold bg-emerald-900 text-emerald-300">
+                                    🖥️ {log.aiModel ? log.aiModel.split(':')[0] : 'Ollama'}
+                                  </span>
+                                )}
+                                {log.aiProvider === 'gemini' && (
+                                  <span className="px-1.5 py-0.5 text-[9px] rounded font-bold bg-blue-900 text-blue-300">
+                                    ☁️ Gemini
+                                  </span>
+                                )}
                               </div>
                               <p className={`text-[10px] ${isDarkMode ? 'text-slate-400' : 'text-slate-505'} truncate`}>
                                 {log.zoneName} · {log.timestamp}
