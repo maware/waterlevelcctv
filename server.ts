@@ -50,7 +50,7 @@ Return ONLY this JSON format with no other text:
 
 readStatus rules: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
 
-IMPORTANT: Only report numbers you physically see in the image. If unsure, set waterLevel to null.`;`;
+IMPORTANT: Only report numbers you physically see in the image. If unsure, set waterLevel to null.`;
 
 // ใช้ prompt ตามประเภท provider
 const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
