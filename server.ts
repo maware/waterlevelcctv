@@ -150,19 +150,25 @@ const chatMessages: ChatMessage[] = [];
 const MAX_MESSAGES = 200;
 const wsClients = new Set<WebSocket>();
 
+
+const BACKTICK3 = String.fromCharCode(96,96,96);
+function stripMarkdown(s: string): string {
+  return s.split(BACKTICK3 + "json").join("").split(BACKTICK3).join("").trim();
+}
+
 async function geminiOCR(ai: GoogleGenAI, imagePart: any): Promise<any> {
   try {
     const r = await ai.models.generateContent({
       model: GEMINI_PRIMARY,
       contents: [imagePart, WATER_PROMPT_GEMINI],
     });
-    return JSON.parse((r.text || "{}").split("```json").join("").split("```").join("").trim());
+    return JSON.parse(stripMarkdown(r.text || "{}"));
   } catch {
     const r = await ai.models.generateContent({
       model: GEMINI_FALLBACK,
       contents: [imagePart, WATER_PROMPT_GEMINI],
     });
-    return JSON.parse((r.text || "{}").split("```json").join("").split("```").join("").trim());
+    return JSON.parse(stripMarkdown(r.text || "{}"));
   }
 }
 
@@ -181,7 +187,7 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
   });
   if (!res.ok) throw new Error(`Ollama error: HTTP ${res.status}`);
   const data = await res.json();
-  const text = (data.response || "{}").split("```json").join("").split("```").join("").trim();
+  const text = stripMarkdown(data.response || "{}");
   return JSON.parse(text);
 }
 
