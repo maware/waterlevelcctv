@@ -25,7 +25,7 @@ CRITICAL RULES:
 3. The BOTTOM EDGE of the image acts as a CUT LINE - any number partially cut by bottom edge is INCOMPLETE
 4. A number is COMPLETE only if ALL its digits (including decimal point) are fully visible
 5. From all COMPLETE numbers found, select the LOWEST value as the water level
-6. Example: visible complete numbers are [4.85, 4.84, 4.83, 4.82, 4.81] → ANSWER IS 4.81 (lowest)
+6. Example: visible complete numbers are [4.85, 4.84, 4.83, 4.82, 4.81] - ANSWER IS 4.81 (lowest)
 7. ถ้าเห็นเลขมาตรวัดแต่ไม่พบระดับน้ำ ให้ยึดเลขล่างสุด
 8. Always list ALL detected numbers in detectedMarkings field
 Return ONLY JSON (no markdown):
@@ -33,25 +33,25 @@ Return ONLY JSON (no markdown):
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
 
 // Prompt สำหรับ Ollama (llava, moondream)
-const WATER_PROMPT_OLLAMA = `Look at this image. Find a yellow ruler/gauge with decimal numbers like 4.01, 4.02, 4.03 printed on it.
+const WATER_PROMPT_OLLAMA = `Look at this image. Find a yellow ruler/gauge with decimal numbers printed on it.
 
-Step 1: Do you see a yellow ruler with numbers? If NO → return {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"no gauge found","detectedMarkings":[]}
+Step 1: Do you see a yellow ruler with decimal numbers (like X.XX format)? 
+- If NO, or if you only see text/words -- return {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"no numbers found","detectedMarkings":[]}
 
-Step 2: If YES → list every number you can fully read (all digits visible, not blurry, not cut off at image edge).
+Step 2: If YES -- list every decimal number you can clearly read (all digits must be fully visible, not blurry, not cut off).
 
-Step 3: From your list, pick the LOWEST number. That is the water level.
+Step 3: Pick the LOWEST number from your list. That is the water level.
 
-Important:
-- If you see text words (not numbers), ignore them.
-- If a number is blurry or cut off at the bottom edge, do NOT include it.
-- Do NOT guess or make up numbers.
-- The lowest number = water touching that mark.
+CRITICAL RULES:
+- Thai text or words are NOT numbers — ignore them, return gaugeFound:false
+- If image is too blurry to read numbers clearly -- return gaugeFound:false, waterLevel:null
+- Do NOT invent, guess, or assume any numbers
+- Numbers like 4.81, 4.82 in this prompt are FORMAT EXAMPLES ONLY — never use them as answers
 
-Return ONLY this JSON (no extra text):
-{"waterLevel":4.01,"confidence":0.85,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"numbers seen: 4.03 4.02 4.01, lowest is 4.01","detectedMarkings":["4.03","4.02","4.01"]}
+Return ONLY valid JSON:
+{"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"what you see","detectedMarkings":[]}
 
-readStatus: below 4.10 = "ระดับปกติ", 4.10-4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
-Use ONLY numbers actually visible in the image. Replace example values with real ones.`;
+readStatus: below 4.10 = "ระดับปกติ", 4.10-4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"`;
 
 // ใช้ prompt ตามประเภท provider
 const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
@@ -176,7 +176,7 @@ async function geminiOCR(ai: GoogleGenAI, imagePart: any): Promise<any> {
 // ─── Ollama OCR (Local AI — ฟรี ไม่มีโคต้า) ──────────────────────────────────
 async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision"): Promise<any> {
   const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
-  console.log(`[Ollama] เริ่มส่งภาพไปยัง ${model} (base64: ${imageBase64.length} chars)`);
+  console.log("[Ollama] sending to " + model + " (base64: " + imageBase64.length + " chars)");
   const res = await fetch(`${ollamaUrl}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -190,7 +190,7 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
   if (!res.ok) throw new Error(`Ollama error: HTTP ${res.status}`);
   const data = await res.json();
   const rawResponse = data.response || "{}";
-  console.log(`[Ollama] ตอบกลับ: ${rawResponse.substring(0, 400)}`);
+  console.log("[Ollama] response: " + rawResponse.substring(0, 400));
   const text = stripMarkdown(rawResponse);
   try {
     const parsed = JSON.parse(text);
@@ -201,7 +201,7 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
     if (match) {
       try {
         const parsed = JSON.parse(match[0]);
-        console.log(`[Ollama] parse จาก regex — waterLevel=${parsed.waterLevel}`);
+        console.log("[Ollama] parsed from regex, waterLevel=" + parsed.waterLevel);
         return parsed;
       } catch {}
     }
@@ -216,7 +216,7 @@ async function universalOCR(imageBase64: string, mimeType: string = "image/jpeg"
   const provider: string = cfg.aiProvider || "gemini";
   const ollamaModel: string = cfg.ollamaModel || "llama3.2-vision";
 
-  console.log(`[OCR] ใช้ provider: ${provider}${provider === "ollama" ? ` (${ollamaModel})` : ""}`);
+  console.log("[OCR] provider: " + provider + (provider === "ollama" ? " (" + ollamaModel + ")" : ""));
 
   let result: any;
   if (provider === "ollama") {
@@ -336,7 +336,7 @@ async function startServer() {
 
   // POST /api/run-fill-job — รัน fill job แบบ manual พร้อม stream log กลับมา (Server-Sent Events)
   app.post("/api/run-fill-job", async (req, res) => {
-    const { hoursBack = 72, targetCam = '', targetHour = '', targetDate = '' } = req.body;
+    const { hoursBack = 72, targetCam = '', targetHour = '', targetDate = '', forceRefill = false, snapshotUrl = '' } = req.body;
 
     // ตั้งค่า SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -393,7 +393,7 @@ async function startServer() {
         const p2 = (n: number) => String(n).padStart(2, '0');
         const ds = `${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`;
         const samplePath = path.join(DATA_DIR, 'snapshots', ds, `${p2(now.getHours())}-00`, `${targetCams[0].camId}.jpg`);
-        send('info', `[debug] ตัวอย่าง path ที่ค้นหา: ${samplePath} → ${fs.existsSync(samplePath) ? 'พบ' : 'ไม่พบ'}`);
+        send('info', `[debug] ตัวอย่าง path ที่ค้นหา: ${samplePath} -> ${fs.existsSync(samplePath) ? 'พบ' : 'ไม่พบ'}`);
         send('info', `[debug] SNAPSHOT_DIR = ${path.join(DATA_DIR, 'snapshots')}`);
       }
 
@@ -424,12 +424,23 @@ async function startServer() {
             r.waterLevel != null &&
             (r.recordedAt || '').startsWith(datePrefix)
           );
-          if (hasReading) { debugHasReading++; continue; }
+          if (hasReading && !forceRefill) { debugHasReading++; continue; }
 
-          const found = findSnapshot(cam.camId, checkDate, now);
-          if (!found) { debugNoSnapshot++; continue; }
-
-          gaps.push({ cam, checkDate, hourStr, snapshotPath: found.path, snapshotMinute: found.minute });
+          let snapshotPath: string;
+          let snapshotMinute: number;
+          if (snapshotUrl) {
+            const m = snapshotUrl.match(/snapshot-file\/([^/]+)\/([^/]+)\/([^/]+)/);
+            if (m) {
+              snapshotPath = path.join(DATA_DIR, 'snapshots', m[1], m[2], m[3]);
+              snapshotMinute = parseInt(m[2].split('-')[1]) || 0;
+            } else { debugNoSnapshot++; continue; }
+          } else {
+            const found = findSnapshot(cam.camId, checkDate, now);
+            if (!found) { debugNoSnapshot++; continue; }
+            snapshotPath = found.path;
+            snapshotMinute = found.minute;
+          }
+          gaps.push({ cam, checkDate, hourStr, snapshotPath, snapshotMinute });
         }
       }
 
@@ -506,8 +517,13 @@ async function startServer() {
               aiModel: ocrResult.aiModel || '',
             };
             const all = readReadings();
-            all.unshift(reading);
-            saveReadings(all);
+            const datePrefixBE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543}`;
+            const filtered = all.filter((r: any) =>
+              !(r.camLabel === cam.camLabel && r.hour === hourStr &&
+                ((r.recordedAt || '').startsWith(datePrefix) || (r.recordedAt || '').startsWith(datePrefixBE)))
+            );
+            filtered.unshift(reading);
+            saveReadings(filtered);
             addFillLogEntry({ camLabel: cam.camLabel, zoneName: cam.zoneName, hour: hourStr, dateStr, success: true, waterLevel: ocrResult.waterLevel, message: `เติมค่าสำเร็จ ${ocrResult.waterLevel} ม.`, aiProvider: ocrResult.aiProvider || 'gemini', aiModel: ocrResult.aiModel || '' });
             send('success', `✅ ${cam.camLabel} ${hourStr}: ${ocrResult.waterLevel.toFixed(2)} ม. (${ocrResult.readStatus || 'N/A'}) [${ocrResult.aiProvider === 'ollama' ? '🖥️ ' + (ocrResult.aiModel || 'Ollama') : '☁️ Gemini'}]`);
             filledCount++;
@@ -689,6 +705,25 @@ async function startServer() {
     }
   });
 
+  // ─── Fix aiProvider/aiModel ใน records เก่าที่ fromSnapshot แต่ไม่มี aiProvider ─
+  app.post("/api/fix-ai-fields", (_req, res) => {
+    try {
+      const readings = readReadings();
+      let fixed = 0;
+      for (const r of readings) {
+        if (r.fromSnapshot && !r.aiProvider) {
+          r.aiProvider = 'gemini';
+          r.aiModel = 'gemini-2.5-flash';
+          fixed++;
+        }
+      }
+      saveReadings(readings);
+      res.json({ fixed });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ─── Snapshot file server — serve ไฟล์ภาพ snapshot โดยตรง ──────────────────
   app.get("/api/snapshot-file/:date/:hourMin/:camId", (req, res) => {
     try {
@@ -837,10 +872,10 @@ async function startServer() {
     try {
       const readings = readReadings();
       if (readings.length === 0) { console.log('[Backup] ไม่มีข้อมูลที่จะ backup'); return; }
-      console.log(`[Backup] กำลัง backup ${readings.length} รายการ...`);
+      console.log("[Backup] กำลัง backup " + (readings.length) + " รายการ...");
       const backupRes = await fetch(`http://localhost:${PORT}/api/backup-to-sheet`, { method: 'POST' });
       const result = await backupRes.json();
-      console.log(`[Backup] Google Sheets: ${result.count} รายการ`);
+      console.log("[Backup] Google Sheets: " + (result.count) + " รายการ");
       const rows = readings.map(r => [
         r.recordedAt || '', r.dateStr || '', r.hour || '',
         r.zoneName || '', r.camLabel || '',
@@ -872,7 +907,7 @@ async function startServer() {
     setInterval(runDailyBackup, 24 * 60 * 60 * 1000);
   }, msToMidnight);
 
-  console.log(`[Backup] ตั้งเวลา backup อัตโนมัติทุกวัน (อีก ${Math.round(msToMidnight/3600000)} ชั่วโมง)`);
+  console.log("[Backup] ตั้งเวลา backup อัตโนมัติทุกวัน (อีก " + (Math.round(msToMidnight/3600000)) + " ชั่วโมง)");
   // ─── Hourly auto scan ─────────────────────────────────────────────────────
   const DEFAULT_CAMS = [
     { camId: 'cam2', camPath: 'cam2_480p', camLabel: 'CAM 2', zoneName: 'บ้านน้ำขุ่น' },
@@ -900,13 +935,13 @@ async function startServer() {
       const res = await fetch(url);
       const data = await res.json();
       const success = data.status === 'success' && data.data?.waterLevel != null;
-      console.log(`[Cron] ${cam.camLabel}: ${success ? data.data.waterLevel + ' ม.' : 'ไม่สำเร็จ'} (${data.data?.readStatus || 'N/A'})`);
+      console.log("[Cron] " + (cam.camLabel) + ": " + (success ? data.data.waterLevel + ' ม.' : 'ไม่สำเร็จ') + " (" + (data.data?.readStatus || 'N/A') + ")");
       if (!success) {
-        console.log(`[Cron] ${cam.camLabel}: จะเช็คจาก snapshot แทน`);
+        console.log("[Cron] " + (cam.camLabel) + ": จะเช็คจาก snapshot แทน");
       }
     } catch (err: any) {
       console.error(`[Cron] ${cam.camLabel} error:`, err.message);
-      console.log(`[Cron] ${cam.camLabel}: จะเช็คจาก snapshot แทน`);
+      console.log("[Cron] " + (cam.camLabel) + ": จะเช็คจาก snapshot แทน");
     }
   };
 
@@ -935,7 +970,7 @@ async function startServer() {
       const buf = Buffer.from(await res.arrayBuffer());
       const outPath = getSnapshotPath(camId, date, useMinuteBucket);
       fs.writeFileSync(outPath, buf);
-      console.log(`[Snapshot] บันทึก ${camId} → ${outPath}`);
+      console.log("[Snapshot] บันทึก " + (camId) + " -> " + (outPath) + "");
       return outPath;
     } catch (err: any) {
       console.error(`[Snapshot] ${camId} error:`, err.message);
@@ -954,7 +989,7 @@ async function startServer() {
         const dirDate = new Date(parseInt(dateMatch[1]), parseInt(dateMatch[2])-1, parseInt(dateMatch[3]));
         if (dirDate < cutoff) {
           fs.rmSync(path.join(SNAPSHOT_DIR, d), { recursive: true, force: true });
-          console.log(`[Snapshot] ลบ snapshot เก่า: ${d}`);
+          console.log("[Snapshot] ลบ snapshot เก่า: " + (d) + "");
         }
       }
     } catch (err: any) {
@@ -1038,11 +1073,11 @@ async function startServer() {
       return 0;
     }
 
-    console.log(`[Fill] พบช่องว่าง ${gaps.length} รายการ กำลังอ่านจาก snapshot...`);
+    console.log("[Fill] พบช่องว่าง " + (gaps.length) + " รายการ กำลังอ่านจาก snapshot...");
     let filledCount = 0;
 
     for (const { cam, checkDate, hourStr, snapshotPath, snapshotMinute } of gaps) {
-      console.log(`[Fill] พบค่าว่าง ${cam.camLabel} ${hourStr} — อ่านจาก snapshot นาที ${pad(snapshotMinute)}...`);
+      console.log("[Fill] พบค่าว่าง " + (cam.camLabel) + " " + (hourStr) + " — อ่านจาก snapshot นาที " + (pad(snapshotMinute)) + "...");
       const thaiMonths = ['มก.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
       const dateStr = `${checkDate.getDate()} ${thaiMonths[checkDate.getMonth()]}`;
       try {
@@ -1069,9 +1104,14 @@ async function startServer() {
 
         if (ocrResult.waterLevel != null) {
           const all = readReadings();
-          all.unshift(reading);
-          saveReadings(all);
-          console.log(`[Fill] ${cam.camLabel} ${hourStr}: ${ocrResult.waterLevel} ม. (จาก snapshot) [${ocrResult.aiProvider || 'gemini'}]`);
+          const datePrefixBE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543}`;
+          const filtered = all.filter((r: any) =>
+            !(r.camLabel === cam.camLabel && r.hour === hourStr &&
+              ((r.recordedAt || '').startsWith(datePrefix) || (r.recordedAt || '').startsWith(datePrefixBE)))
+          );
+          filtered.unshift(reading);
+          saveReadings(filtered);
+          console.log("[Fill] " + (cam.camLabel) + " " + (hourStr) + ": " + (ocrResult.waterLevel) + " ม. (จาก snapshot) [" + (ocrResult.aiProvider || 'gemini') + "]");
           filledCount++;
           addFillLogEntry({
             camLabel: cam.camLabel,
@@ -1121,7 +1161,7 @@ async function startServer() {
   const runFillMissingJob = async () => {
     const filled = await fillMissingFromSnapshots(72);
     if (filled > 0) {
-      console.log(`[Fill] เติมค่าสำเร็จ ${filled} รายการ`);
+      console.log("[Fill] เติมค่าสำเร็จ " + (filled) + " รายการ");
     }
   };
 
@@ -1134,7 +1174,7 @@ async function startServer() {
     }
     const targetCams = getTargetCams();
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-    console.log(`[Cron] เริ่มสแกน ${new Date().toLocaleTimeString('th-TH')} (${targetCams.length} กล้อง)`);
+    console.log("[Cron] เริ่มสแกน " + (new Date().toLocaleTimeString('th-TH')) + " (" + (targetCams.length) + " กล้อง)");
     const systemSecret = process.env.CRON_SECRET || 'watpuek_cloud_sync_secret';
 
     for (const cam of targetCams) {
@@ -1150,9 +1190,13 @@ async function startServer() {
     console.log('[Cron] สแกนเสร็จสิ้น (ใช้ปุ่ม "รัน Fill Job" ในหน้า admin เพื่อเติมค่าที่ขาดหาย)');
   };
 
-  const msToNextHour = (60 - new Date().getMinutes()) * 60 * 1000 - new Date().getSeconds() * 1000;
+  // รันตอนนาที :02 ของทุกชั่วโมง
+  const _now = new Date();
+  const _minTarget = 2;
+  const _minDiff = (_minTarget - _now.getMinutes() + 60) % 60 || 60;
+  const msToNextHour = _minDiff * 60 * 1000 - _now.getSeconds() * 1000;
   setTimeout(() => { runHourlyScan(); setInterval(runHourlyScan, 60 * 60 * 1000); }, msToNextHour);
-  console.log(`[Cron] สแกนอัตโนมัติทุกชั่วโมง (อีก ${Math.round(msToNextHour/60000)} นาที)`);
+  console.log("[Cron] สแกนอัตโนมัติทุกชั่วโมง นาที :02 (อีก " + (Math.round(msToNextHour/60000)) + " นาที)");
 
   // Snapshot job: เก็บภาพทุก 5 นาที (เฉพาะกล้องที่ใช้สแกน AI)
   const nowForSnapshot = new Date();
@@ -1160,7 +1204,7 @@ async function startServer() {
   const secsSinceLast5MinMark = remainderMin * 60 + nowForSnapshot.getSeconds();
   const msToNext5Min = (5 * 60 * 1000) - (secsSinceLast5MinMark * 1000);
   setTimeout(() => { runSnapshotJob(); setInterval(runSnapshotJob, 5 * 60 * 1000); }, msToNext5Min);
-  console.log(`[Snapshot] เก็บภาพอัตโนมัติทุก 5 นาที (อีก ${Math.round(msToNext5Min/1000)} วินาที)`);
+  console.log("[Snapshot] เก็บภาพอัตโนมัติทุก 5 นาที (อีก " + (Math.round(msToNext5Min/1000)) + " วินาที)");
 
   // Fill-missing job: เช็คช่องว่างย้อนหลัง 3 วัน ทุก 5 นาที รันหลัง snapshot job 2 นาที
   // (เว้นระยะให้ runHourlyScan มีเวลาสแกนสดจบก่อน ลดโอกาสชนกันตอนนาที 00)

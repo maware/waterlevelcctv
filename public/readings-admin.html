@@ -397,6 +397,11 @@
         <option value="เฝ้าระวัง">เฝ้าระวัง</option>
         <option value="วิกฤต">วิกฤต</option>
       </select>
+      <select id="filter-source" onchange="renderTable()">
+        <option value="">ทุกแหล่งที่มา</option>
+        <option value="live">📡 สแกนสด</option>
+        <option value="snapshot">📷 เติมจาก snapshot</option>
+      </select>
       <input type="date" id="filter-date" onchange="renderTable()">
       <button class="btn btn-outline" onclick="clearFilters()">✕ ล้างตัวกรอง</button>
       <button class="btn btn-primary" onclick="loadData()">🔄 รีโหลด</button>
@@ -777,6 +782,9 @@
         if (search && !`${r.zoneName} ${r.camLabel} ${r.explanation}`.toLowerCase().includes(search)) return false;
         if (zone && r.zoneName !== zone) return false;
         if (status && r.readStatus !== status) return false;
+        const source = document.getElementById('filter-source').value;
+        if (source === 'snapshot' && !r.fromSnapshot) return false;
+        if (source === 'live' && r.fromSnapshot) return false;
         if (date) {
           const d = new Date(date);
           const thDay = d.getDate();
@@ -962,6 +970,7 @@
       document.getElementById('search').value = '';
       document.getElementById('filter-zone').value = '';
       document.getElementById('filter-status').value = '';
+      document.getElementById('filter-source').value = '';
       document.getElementById('filter-date').value = '';
       renderTable();
     }
