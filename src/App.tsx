@@ -896,9 +896,7 @@ export default function App() {
     explanation: string,
     confidence: number,
     zoneId: string,
-    hourNum: number,
-    aiProvider?: string,
-    aiModel?: string,
+    hourNum: number
   ) => {
     const now = new Date();
     const thaiMonths = ["มก.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -912,9 +910,7 @@ export default function App() {
       confidence,
       hour: `${pad(hourNum)}:00`,
       dateStr: `${now.getDate()} ${thaiMonths[now.getMonth()]}`,
-      recordedAt: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
-      aiProvider: aiProvider || 'gemini',
-      aiModel: aiModel || '',
+      recordedAt: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     };
     try {
       const res = await fetch('/api/readings', {
@@ -984,10 +980,35 @@ export default function App() {
         resolvedImageUrl = liveCapture;
         setAiScannedImage(liveCapture);
       } else {
-        const urlToUse = mockImageForCam(camId);
-        body.imageUrl = urlToUse || mockImageForCam('cam6');
-        resolvedImageUrl = urlToUse || mockImageForCam('cam6');
-        setAiScannedImage(resolvedImageUrl);
+        // ดึง snapshot สดจาก server แทน mock image
+        try {
+          const systemSecret = 'watpuek_cloud_sync_secret';
+          const suffix = selectedQuality === '1080p' ? suffix1080p : selectedQuality === '720p' ? suffix720p : suffix480p;
+          const camPath = `${camera.camPath}${suffix}`;
+          addLog('info', `[ดึงภาพ] กำลังดึง snapshot จากกล้อง ${camera.label}...`);
+          const snapRes = await fetch(`/api/snapshot/${camera.id}?secret=${systemSecret}&camPath=${encodeURIComponent(camPath)}`);
+          if (snapRes.ok) {
+            const snapBlob = await snapRes.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve((reader.result as string).replace(/^data:image\/\w+;base64,/, ''));
+              reader.readAsDataURL(snapBlob);
+            });
+            body.imageBase64 = base64;
+            const dataUrl = `data:image/jpeg;base64,${base64}`;
+            resolvedImageUrl = dataUrl;
+            setAiScannedImage(dataUrl);
+            addLog('success', `[ดึงภาพ] ได้ snapshot จากกล้อง ${camera.label} แล้ว`);
+          } else {
+            throw new Error(`snapshot ไม่สำเร็จ: ${snapRes.status}`);
+          }
+        } catch (snapErr: any) {
+          addLog('warn', `[ดึงภาพ] ดึง snapshot ไม่ได้: ${snapErr.message} — ใช้ภาพตัวอย่างแทน`);
+          const urlToUse = mockImageForCam(camId);
+          body.imageUrl = urlToUse || mockImageForCam('cam6');
+          resolvedImageUrl = urlToUse || mockImageForCam('cam6');
+          setAiScannedImage(resolvedImageUrl);
+        }
       }
 
       const response = await fetch("/api/ocr-water-level", {
@@ -1022,9 +1043,7 @@ export default function App() {
         readStatus: data.readStatus,
         explanation: data.explanation,
         imageUrl: liveCapture || testUrl || mockImageForCam(camera.id) || "uploaded",
-        timestamp: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-        aiProvider: data.aiProvider || 'gemini',
-        aiModel: data.aiModel || '',
+        timestamp: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
       };
 
       setAiLogs((prev: any) => {
@@ -1043,9 +1062,7 @@ export default function App() {
           data.explanation,
           data.confidence,
           zone.id,
-          new Date().getHours(),
-          data.aiProvider,
-          data.aiModel,
+          new Date().getHours()
         );
       }
 
@@ -1141,9 +1158,7 @@ export default function App() {
           simulatedResult.explanation,
           simulatedResult.confidence,
           zone.id,
-          new Date().getHours(),
-          'simulation',
-          'local-fallback',
+          new Date().getHours()
         );
       }
 
@@ -2986,16 +3001,6 @@ export default function App() {
                                 }`}>
                                   {log.readStatus}
                                 </span>
-                                {log.aiProvider === 'ollama' && (
-                                  <span className="px-1.5 py-0.5 text-[9px] rounded font-bold bg-emerald-900 text-emerald-300">
-                                    🖥️ {log.aiModel ? log.aiModel.split(':')[0] : 'Ollama'}
-                                  </span>
-                                )}
-                                {log.aiProvider === 'gemini' && (
-                                  <span className="px-1.5 py-0.5 text-[9px] rounded font-bold bg-blue-900 text-blue-300">
-                                    ☁️ Gemini
-                                  </span>
-                                )}
                               </div>
                               <p className={`text-[10px] ${isDarkMode ? 'text-slate-400' : 'text-slate-505'} truncate`}>
                                 {log.zoneName} · {log.timestamp}
