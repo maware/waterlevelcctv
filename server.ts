@@ -156,13 +156,13 @@ async function geminiOCR(ai: GoogleGenAI, imagePart: any): Promise<any> {
       model: GEMINI_PRIMARY,
       contents: [imagePart, WATER_PROMPT_GEMINI],
     });
-    return JSON.parse((r.text || "{}").replace(/[`]{3}json|[`]{3}/g, "").trim());
+    return JSON.parse((r.text || "{}").split("```json").join("").split("```").join("").trim());
   } catch {
     const r = await ai.models.generateContent({
       model: GEMINI_FALLBACK,
       contents: [imagePart, WATER_PROMPT_GEMINI],
     });
-    return JSON.parse((r.text || "{}").replace(/[`]{3}json|[`]{3}/g, "").trim());
+    return JSON.parse((r.text || "{}").split("```json").join("").split("```").join("").trim());
   }
 }
 
@@ -181,7 +181,7 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
   });
   if (!res.ok) throw new Error(`Ollama error: HTTP ${res.status}`);
   const data = await res.json();
-  const text = (data.response || "{}").replace(/[`]{3}json|[`]{3}/g, "").trim();
+  const text = (data.response || "{}").split("```json").join("").split("```").join("").trim();
   return JSON.parse(text);
 }
 
