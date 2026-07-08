@@ -139,6 +139,9 @@
   .lightbox img{max-width:90vw;max-height:85vh;border-radius:12px;border:1px solid var(--border2)}
   .lightbox .lb-close{position:fixed;top:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:14px;z-index:1000}
 
+  .badge-ai-ollama{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25)}
+  .badge-ai-gemini{background:rgba(77,166,255,.1);color:var(--info);border:1px solid rgba(77,166,255,.2)}
+
   @media(max-width:500px){
     .stats-row{grid-template-columns:repeat(2,1fr)}
     .ctrl-row{flex-direction:column}
@@ -168,6 +171,13 @@
     <h1>เติมข้อมูลย้อนหลังรายชั่วโมง</h1>
     <p>แสดงข้อมูลที่มี/ขาดหายรายชั่วโมง — คลิกเติมรายชั่วโมงเดียว หรือรัน Fill Job เพื่อเติมทั้งหมดจาก snapshot</p>
   </div>
+</div>
+
+<!-- AI Status Banner -->
+<div id="ai-banner" style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;font-size:13px">
+  <span style="color:var(--text-muted)">🤖 AI ที่ใช้อยู่:</span>
+  <span id="ai-badge-banner" style="font-size:12px;padding:3px 10px;border-radius:6px;font-weight:600">กำลังโหลด…</span>
+  <a href="/readings-admin.html" style="margin-left:auto;color:var(--text-dim);font-size:12px;text-decoration:none">⚙️ เปลี่ยนใน Settings</a>
 </div>
 
 <!-- ─── GRID ─────────────────────────────────────────────────────── -->
@@ -356,6 +366,23 @@ async function loadConfig() {
           SCAN_CAMS.map(c=>`<div class="cam-tag" data-cam="${c.camLabel}" onclick="toggleCamFilter(this)"><div class="ind"></div>${c.camLabel}</div>`).join('');
       }
     }
+    // แสดง AI provider ที่ใช้งานอยู่
+    const provider = cfg.aiProvider || 'gemini';
+    const model = cfg.ollamaModel || 'llama3.2-vision';
+    const bannerEl = document.getElementById('ai-badge-banner');
+    if(bannerEl) {
+      if(provider === 'ollama') {
+        bannerEl.textContent = `🖥️ Ollama (${model})`;
+        bannerEl.style.background = 'rgba(34,197,94,.12)';
+        bannerEl.style.color = '#4ade80';
+        bannerEl.style.border = '1px solid rgba(34,197,94,.25)';
+      } else {
+        bannerEl.textContent = '☁️ Gemini (Cloud)';
+        bannerEl.style.background = 'rgba(77,166,255,.1)';
+        bannerEl.style.color = '#4da6ff';
+        bannerEl.style.border = '1px solid rgba(77,166,255,.2)';
+      }
+    }
   } catch(e) { console.warn('loadConfig failed:', e); }
 }
 
@@ -480,10 +507,15 @@ function renderGrid(){
       const r=item.reading;
       const snapPart = r.fromSnapshot
         ? `<span class="hcell-badge badge-snap" style="font-size:9px">จาก snap</span>` : '';
+      const aiBadge = r.aiProvider === 'ollama'
+        ? `<span class="hcell-badge badge-ai-ollama" style="font-size:9px">🖥️ ${r.aiModel ? r.aiModel.split(':')[0] : 'Ollama'}</span>`
+        : r.aiProvider === 'gemini'
+        ? `<span class="hcell-badge badge-ai-gemini" style="font-size:9px">☁️ Gemini</span>`
+        : '';
       bottomHtml=`
         <div>
           <div class="hcell-level">${r.waterLevel!=null?r.waterLevel.toFixed(2):'—'} <span style="font-size:12px;font-weight:400;color:var(--text-dim)">ม.</span></div>
-          <div class="hcell-meta">${r.readStatus||''} · ${r.confidence?(r.confidence*100).toFixed(0)+'%':''} ${snapPart}</div>
+          <div class="hcell-meta">${r.readStatus||''} · ${r.confidence?(r.confidence*100).toFixed(0)+'%':''} ${snapPart} ${aiBadge}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <img class="snap-thumb" src="${item.snapUrl}"
@@ -653,6 +685,16 @@ async function startFillJob(){
   logLines=0;
   document.getElementById('log-count').style.display='none';
   ['gaps','filled','skipped','errors'].forEach(k=>document.getElementById('stat-'+k).textContent='0');
+
+  // แสดง AI ที่ใช้งานอยู่ใน log
+  try {
+    const cfgRes = await fetch('/api/config');
+    const cfg = await cfgRes.json();
+    const provider = cfg.aiProvider || 'gemini';
+    const model = cfg.ollamaModel || 'llama3.2-vision';
+    appendLog('info', `🤖 AI: ${provider === 'ollama' ? '🖥️ Ollama (' + model + ')' : '☁️ Gemini (Cloud)'}`);
+  } catch {}
+
   setStatus('running',`กำลังสแกนย้อนหลัง ${hoursBack} ชั่วโมง…`);
   setProgress(0,true);
 

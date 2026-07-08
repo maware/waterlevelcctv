@@ -1029,6 +1029,19 @@
       btn.textContent = '⏳ กำลังสแกน...';
       document.getElementById('scan-log').textContent = '';
 
+      // โหลด config เพื่อรู้ว่าใช้ AI ตัวไหน
+      let currentProvider = 'gemini';
+      let currentModel = 'Gemini';
+      try {
+        const cfgRes = await fetch('/api/config');
+        const cfg = await cfgRes.json();
+        currentProvider = cfg.aiProvider || 'gemini';
+        currentModel = currentProvider === 'ollama' ? (cfg.ollamaModel || 'llama3.2-vision') : 'Gemini';
+      } catch {}
+
+      logScan(`🤖 AI ที่ใช้: ${currentProvider === 'ollama' ? '🖥️ Ollama (' + currentModel + ')' : '☁️ Gemini'}`);
+      logScan(`─────────────────────────────`);
+
       for (const cam of selectedCams) {
         logScan(`📷 กำลังสแกน ${cam.camLabel} (${cam.zoneName})...`);
         try {
@@ -1036,20 +1049,24 @@
           const res = await fetch(url);
           const data = await res.json();
           if (data.status === 'success') {
-            logScan(`✅ ${cam.camLabel}: ${data.data.waterLevel} ม. (${data.data.readStatus})`);
+            const aiInfo = data.data.aiProvider === 'ollama'
+              ? `[🖥️ ${data.data.aiModel || 'Ollama'}]`
+              : `[☁️ Gemini]`;
+            logScan(`✅ ${cam.camLabel}: ${data.data.waterLevel} ม. (${data.data.readStatus}) ${aiInfo}`);
           } else {
             logScan(`❌ ${cam.camLabel}: ${data.message || 'ผิดพลาด'}`);
           }
         } catch (err) {
           logScan(`❌ ${cam.camLabel}: ${err.message}`);
         }
-        // รอ 2 วินาทีระหว่างกล้อง
-        if (selectedCams.indexOf(cam) < selectedCams.length - 1) {
+        // delay เฉพาะ Gemini (rate limit) — Ollama ไม่ต้องรอ
+        if (selectedCams.indexOf(cam) < selectedCams.length - 1 && currentProvider === 'gemini') {
           await new Promise(r => setTimeout(r, 2000));
         }
       }
 
-      logScan('\n✅ สแกนเสร็จสิ้น — กดปิดเพื่อดูผลลัพธ์');
+      logScan(`─────────────────────────────`);
+      logScan('✅ สแกนเสร็จสิ้น — กดปิดเพื่อดูผลลัพธ์');
       btn.textContent = '✅ เสร็จแล้ว';
     }
 
@@ -1346,16 +1363,24 @@
               <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">เวลาที่เติม</th>
               <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">กล้อง</th>
               <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">ชั่วโมงที่ขาด</th>
+              <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">AI</th>
               <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">สถานะ</th>
               <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0">รายละเอียด</th>
             </tr>
           </thead>
           <tbody>
-            ${filtered.map(e => `
+            ${filtered.map(e => {
+              const aiBadge = e.aiProvider === 'ollama'
+                ? `<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:600">🖥️ ${e.aiModel ? e.aiModel.split(':')[0] : 'Ollama'}</span>`
+                : e.aiProvider === 'gemini'
+                ? `<span style="font-size:11px;background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;white-space:nowrap;font-weight:600">☁️ Gemini</span>`
+                : `<span style="font-size:11px;color:#94a3b8">—</span>`;
+              return `
               <tr style="border-bottom:1px solid #f1f5f9">
                 <td style="padding:8px 10px;white-space:nowrap;color:#64748b">${new Date(e.timestamp).toLocaleString('th-TH')}</td>
                 <td style="padding:8px 10px;white-space:nowrap">${e.camLabel || '—'}<br><span style="color:#94a3b8;font-size:11px">${e.zoneName || ''}</span></td>
                 <td style="padding:8px 10px;white-space:nowrap">${e.dateStr || ''} ${e.hour || ''}</td>
+                <td style="padding:8px 10px;white-space:nowrap">${aiBadge}</td>
                 <td style="padding:8px 10px;white-space:nowrap">
                   ${e.success
                     ? `<span class="badge badge-normal">✅ สำเร็จ</span>`
@@ -1364,8 +1389,8 @@
                 <td style="padding:8px 10px;color:#475569">
                   ${e.message || '—'}${e.waterLevel != null ? ` (${e.waterLevel.toFixed(2)} ม.)` : ''}
                 </td>
-              </tr>
-            `).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       `;

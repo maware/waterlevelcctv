@@ -69,6 +69,8 @@ interface FillLogEntry {
   success: boolean;
   waterLevel: number | null;
   message: string;        // สรุปผลลัพธ์หรือ error
+  aiProvider?: string;    // gemini | ollama
+  aiModel?: string;       // ชื่อ model ที่ใช้
 }
 
 function readReadings(): Reading[] {
@@ -451,11 +453,11 @@ async function startServer() {
             const all = readReadings();
             all.unshift(reading);
             saveReadings(all);
-            addFillLogEntry({ camLabel: cam.camLabel, zoneName: cam.zoneName, hour: hourStr, dateStr, success: true, waterLevel: ocrResult.waterLevel, message: `เติมค่าสำเร็จ ${ocrResult.waterLevel} ม.` });
-            send('success', `✅ ${cam.camLabel} ${hourStr}: ${ocrResult.waterLevel.toFixed(2)} ม. (${ocrResult.readStatus || 'N/A'})`);
+            addFillLogEntry({ camLabel: cam.camLabel, zoneName: cam.zoneName, hour: hourStr, dateStr, success: true, waterLevel: ocrResult.waterLevel, message: `เติมค่าสำเร็จ ${ocrResult.waterLevel} ม.`, aiProvider: ocrResult.aiProvider || 'gemini', aiModel: ocrResult.aiModel || '' });
+            send('success', `✅ ${cam.camLabel} ${hourStr}: ${ocrResult.waterLevel.toFixed(2)} ม. (${ocrResult.readStatus || 'N/A'}) [${ocrResult.aiProvider === 'ollama' ? '🖥️ ' + (ocrResult.aiModel || 'Ollama') : '☁️ Gemini'}]`);
             filledCount++;
           } else {
-            addFillLogEntry({ camLabel: cam.camLabel, zoneName: cam.zoneName, hour: hourStr, dateStr, success: false, waterLevel: null, message: 'AI อ่านค่าไม่ได้' });
+            addFillLogEntry({ camLabel: cam.camLabel, zoneName: cam.zoneName, hour: hourStr, dateStr, success: false, waterLevel: null, message: 'AI อ่านค่าไม่ได้', aiProvider: ocrResult.aiProvider || 'gemini', aiModel: ocrResult.aiModel || '' });
             send('warn', `⚠️ ${cam.camLabel} ${hourStr}: AI อ่านค่าจากภาพไม่ได้`);
             skipCount++;
           }
@@ -1006,7 +1008,7 @@ async function startServer() {
           const all = readReadings();
           all.unshift(reading);
           saveReadings(all);
-          console.log(`[Fill] ${cam.camLabel} ${hourStr}: ${ocrResult.waterLevel} ม. (จาก snapshot)`);
+          console.log(`[Fill] ${cam.camLabel} ${hourStr}: ${ocrResult.waterLevel} ม. (จาก snapshot) [${ocrResult.aiProvider || 'gemini'}]`);
           filledCount++;
           addFillLogEntry({
             camLabel: cam.camLabel,
@@ -1016,6 +1018,8 @@ async function startServer() {
             success: true,
             waterLevel: ocrResult.waterLevel,
             message: `เติมค่าสำเร็จ ${ocrResult.waterLevel} ม. (จาก snapshot)`,
+            aiProvider: ocrResult.aiProvider || 'gemini',
+            aiModel: ocrResult.aiModel || '',
           });
         } else {
           addFillLogEntry({
@@ -1026,6 +1030,8 @@ async function startServer() {
             success: false,
             waterLevel: null,
             message: 'AI อ่านค่าจากภาพไม่ได้ (waterLevel เป็น null)',
+            aiProvider: ocrResult.aiProvider || 'gemini',
+            aiModel: ocrResult.aiModel || '',
           });
         }
       } catch (e: any) {
@@ -1040,7 +1046,9 @@ async function startServer() {
           message: `error: ${e.message}`,
         });
       }
-      await new Promise(r => setTimeout(r, 2000));
+      // delay เฉพาะ Gemini — Ollama ไม่ต้องรอ
+      const _provider = readConfig().aiProvider || 'gemini';
+      if (_provider === 'gemini') await new Promise(r => setTimeout(r, 2000));
     }
 
     return filledCount;
