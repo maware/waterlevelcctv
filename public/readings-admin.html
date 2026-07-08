@@ -359,6 +359,7 @@
       <button class="btn" style="background:#0891b2;color:white" onclick="openZoneManagerModal()">🗺 จัดการโซน</button>
       <button class="btn" style="background:#7c3aed;color:white" onclick="openFillLogModal()">📋 Log การเติมค่า</button>
       <a href="/backfill.html" class="btn" style="background:#16a34a;color:white;text-decoration:none">🔄 เติมข้อมูลย้อนหลัง</a>
+      <a href="/snapshots.html" class="btn" style="background:#0369a1;color:white;text-decoration:none">🖼 คลังภาพ Snapshot</a>
       <button class="btn" style="background:#0f766e;color:white" onclick="restoreFromSheet()">⬆️ ดึงจาก Sheet</button>
     </div>
   </header>
@@ -399,8 +400,9 @@
       </select>
       <select id="filter-source" onchange="renderTable()">
         <option value="">ทุกแหล่งที่มา</option>
-        <option value="live">📡 สแกนสด</option>
-        <option value="snapshot">📷 เติมจาก snapshot</option>
+        <option value="hourly">⏰ อ่านอัตโนมัติรายชั่วโมง</option>
+        <option value="manual-fill">🖱️ เติมเอง</option>
+        <option value="auto-fill">🤖 เติมอัตโนมัติ</option>
       </select>
       <input type="date" id="filter-date" onchange="renderTable()">
       <button class="btn btn-outline" onclick="clearFilters()">✕ ล้างตัวกรอง</button>
@@ -783,8 +785,11 @@
         if (zone && r.zoneName !== zone) return false;
         if (status && r.readStatus !== status) return false;
         const source = document.getElementById('filter-source').value;
-        if (source === 'snapshot' && !r.fromSnapshot) return false;
-        if (source === 'live' && r.fromSnapshot) return false;
+        if (source) {
+          // ใช้ field source ถ้ามี ไม่มีให้ infer จาก fromSnapshot
+          const rSrc = r.source || (r.fromSnapshot ? 'auto-fill' : 'hourly');
+          if (rSrc !== source) return false;
+        }
         if (date) {
           const d = new Date(date);
           const thDay = d.getDate();
@@ -822,7 +827,13 @@
             : `<span style="font-size:11px;color:#94a3b8">—</span>`;
           return `
           <tr style="cursor:pointer" onclick="toggleDetail('detail-${r.id}', this)">
-            <td>${r.recordedAt || r.dateStr || '—'}${r.fromSnapshot ? ' <span title="เติมจาก snapshot" style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;white-space:nowrap">📷 snapshot</span>' : ''}</td>
+            <td>${r.recordedAt || r.dateStr || '—'} ${(()=>{
+              const s = r.source || (r.fromSnapshot ? 'auto-fill' : 'hourly');
+              if(s==='hourly') return '<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;white-space:nowrap;font-weight:600">⏰ รายชั่วโมง</span>';
+              if(s==='manual-fill') return '<span style="font-size:10px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;white-space:nowrap;font-weight:600">🖱️ เติมเอง</span>';
+              if(s==='auto-fill') return '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;white-space:nowrap;font-weight:600">🤖 เติมอัตโนมัติ</span>';
+              return '';
+            })()}</td>
             <td>${r.zoneName || '—'}</td>
             <td>${r.camLabel || '—'}</td>
             <td>${r.hour || '—'}</td>

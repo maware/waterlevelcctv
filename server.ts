@@ -18,35 +18,39 @@ const GEMINI_PRIMARY = "gemini-2.5-flash";
 const GEMINI_FALLBACK = "gemini-3.1-flash-lite";
 
 // Prompt สำหรับ Gemini — เข้าใจ example ได้ดี
-const WATER_PROMPT_GEMINI = `You are an expert AI Water Level Assistant for 'วัดปึก แจ้งระดับน้ำ'. Analyze this CCTV picture of a water level staff gauge in a canal.
-CRITICAL RULES:
-1. Scan ALL visible numbers on the gauge from top to bottom of image
-2. List every number you can see completely
-3. The BOTTOM EDGE of the image acts as a CUT LINE - any number partially cut by bottom edge is INCOMPLETE
-4. A number is COMPLETE only if ALL its digits (including decimal point) are fully visible
-5. From all COMPLETE numbers found, select the LOWEST value as the water level
-6. Example: visible complete numbers are [4.85, 4.84, 4.83, 4.82, 4.81] - ANSWER IS 4.81 (lowest)
-7. ถ้าเห็นเลขมาตรวัดแต่ไม่พบระดับน้ำ ให้ยึดเลขล่างสุด
-8. Always list ALL detected numbers in detectedMarkings field
+const WATER_PROMPT_GEMINI = `You are an expert AI Water Level reader for a CCTV flood monitoring system in Thailand. Your job is to read the water level from a yellow staff gauge in the image.
+
+READING STRATEGY — follow in order:
+1. Scan the ENTIRE image for a yellow ruler/gauge with printed decimal numbers (e.g. 4.01, 4.02, 4.03)
+2. Even if the image is blurry, reflective, or partially obscured — TRY TO READ. Do NOT give up easily.
+3. List EVERY number you can make out, even partially. Use surrounding context (spacing, adjacent visible digits) to infer unclear digits.
+4. The water level is the LOWEST complete number visible in the image.
+5. The BOTTOM EDGE is a cut line — numbers cut off at the bottom are incomplete, do not use them as the answer.
+6. If you can see part of a number and can reasonably infer the full value from context, DO SO and note lower confidence.
+7. ถ้าเห็นเลขบางส่วนให้ประมาณค่าได้ โดยใช้ความมั่นใจต่ำ (confidence < 0.7)
+8. Only return waterLevel:null if the gauge is COMPLETELY invisible or the image is total darkness.
+
+IMPORTANT: Blurry images often still contain readable numbers. Reflections and glare do not prevent reading — look around them.
+
 Return ONLY JSON (no markdown):
 {"waterLevel":4.81,"confidence":0.95,"gaugeFound":true,"readStatus":"เฝ้าระวัง","explanation":"...","detectedMarkings":["4.81","4.82","4.83","4.84","4.85"]}
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
 
 // Prompt สำหรับ Ollama (llava, moondream)
-const WATER_PROMPT_OLLAMA = `Look at this image. Find a yellow ruler/gauge with decimal numbers printed on it.
+const WATER_PROMPT_OLLAMA = `Look at this image. Find a yellow ruler/gauge with decimal numbers (like 4.01, 4.02, 4.03 format).
 
-Step 1: Do you see a yellow ruler with decimal numbers (like X.XX format)? 
-- If NO, or if you only see text/words -- return {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"no numbers found","detectedMarkings":[]}
+Step 1: Is there a yellow gauge visible? Even if blurry or partially lit?
+- Completely dark/missing gauge only → {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"no gauge","detectedMarkings":[]}
 
-Step 2: If YES -- list every decimal number you can clearly read (all digits must be fully visible, not blurry, not cut off).
+Step 2: TRY TO READ even if blurry or reflective. Look around glare spots. Use digit spacing and context to infer unclear digits. List every number you can make out.
 
-Step 3: Pick the LOWEST number from your list. That is the water level.
+Step 3: Pick the LOWEST number. That is the water level. If partial, estimate with low confidence.
 
-CRITICAL RULES:
-- Thai text or words are NOT numbers — ignore them, return gaugeFound:false
-- If image is too blurry to read numbers clearly -- return gaugeFound:false, waterLevel:null
-- Do NOT invent, guess, or assume any numbers
-- Numbers like 4.81, 4.82 in this prompt are FORMAT EXAMPLES ONLY — never use them as answers
+RULES:
+- Thai text or words are NOT numbers — ignore them
+- Blurry does NOT automatically mean unreadable — always try
+- Numbers in this prompt are FORMAT EXAMPLES ONLY — never copy them as answers
+- Only return null if gauge is truly completely invisible
 
 Return ONLY valid JSON:
 {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"what you see","detectedMarkings":[]}
@@ -517,10 +521,11 @@ async function startServer() {
               aiModel: ocrResult.aiModel || '',
             };
             const all = readReadings();
-            const datePrefixBE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543}`;
+            const _dpCE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()}`;
+            const _dpBE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543}`;
             const filtered = all.filter((r: any) =>
               !(r.camLabel === cam.camLabel && r.hour === hourStr &&
-                ((r.recordedAt || '').startsWith(datePrefix) || (r.recordedAt || '').startsWith(datePrefixBE)))
+                ((r.recordedAt || '').startsWith(_dpCE) || (r.recordedAt || '').startsWith(_dpBE)))
             );
             filtered.unshift(reading);
             saveReadings(filtered);
@@ -1104,10 +1109,11 @@ async function startServer() {
 
         if (ocrResult.waterLevel != null) {
           const all = readReadings();
-          const datePrefixBE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543}`;
+          const _dpCE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()}`;
+          const _dpBE = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543}`;
           const filtered = all.filter((r: any) =>
             !(r.camLabel === cam.camLabel && r.hour === hourStr &&
-              ((r.recordedAt || '').startsWith(datePrefix) || (r.recordedAt || '').startsWith(datePrefixBE)))
+              ((r.recordedAt || '').startsWith(_dpCE) || (r.recordedAt || '').startsWith(_dpBE)))
           );
           filtered.unshift(reading);
           saveReadings(filtered);

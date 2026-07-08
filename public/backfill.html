@@ -79,7 +79,23 @@
   @keyframes indeterminate{0%{transform:translateX(-120%)}100%{transform:translateX(350%)}}
 
   /* log */
-  .log-panel{font-family:var(--mono);font-size:12px;line-height:1.8;background:#050b15;border-top:1px solid var(--border);padding:14px 18px;height:280px;overflow-y:auto;scroll-behavior:smooth}
+  /* floating log */
+  .log-float{position:fixed;bottom:20px;right:20px;width:380px;max-height:320px;background:#070d1a;border:1px solid var(--border2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:500;display:flex;flex-direction:column;transform:translateY(calc(100% + 24px));transition:transform .3s cubic-bezier(.4,0,.2,1);overflow:hidden}
+  .log-float.visible{transform:translateY(0)}
+  .log-float-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;flex-shrink:0}
+  .log-float-head .dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted)}
+  .log-float-head.running .dot{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1s ease-in-out infinite}
+  .log-float-head .title{font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+  .log-float-head .cnt{font-size:10px;font-family:var(--mono);background:var(--surface2);border:1px solid var(--border2);padding:1px 7px;border-radius:4px;color:var(--text-muted);margin-left:auto}
+  .log-float-head .chevron{color:var(--text-muted);font-size:11px;transition:transform .2s}
+  .log-float.collapsed .log-float-head .chevron{transform:rotate(180deg)}
+  .log-float-body{overflow-y:auto;flex:1;scroll-behavior:smooth}
+  .log-float-body::-webkit-scrollbar{width:3px}
+  .log-float-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+  .log-float.collapsed .log-float-body{display:none}
+  .log-panel{font-family:var(--mono);font-size:11.5px;line-height:1.8;background:transparent;padding:10px 14px}
+  .log-panel::-webkit-scrollbar{width:4px}
+  .log-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
   .log-panel::-webkit-scrollbar{width:4px}
   .log-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
   .log-line{display:flex;gap:9px}
@@ -282,32 +298,31 @@
   </div>
 </div>
 
-<!-- log + stats -->
+<!-- stats card -->
 <div class="card">
-  <div class="card-head" style="justify-content:space-between">
-    <div style="display:flex;align-items:center;gap:8px">
-      <div class="dot" style="background:#4da6ff;box-shadow:0 0 6px #4da6ff"></div>
-      <span>Log การทำงาน</span>
-      <span id="log-count" style="display:none;font-size:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">0</span>
-    </div>
-    <button class="btn-clear" onclick="clearLog()">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-      ล้าง
-    </button>
-  </div>
-
-  <div class="log-panel" id="log-panel">
-    <div class="log-empty" id="log-empty">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      <span>log จะปรากฏที่นี่เมื่อรัน Fill Job</span>
-    </div>
-  </div>
-
   <div class="stats-row">
     <div class="stat-box gaps"><div class="val" id="stat-gaps">—</div><div class="lbl">ช่องว่างที่พบ</div></div>
     <div class="stat-box filled"><div class="val" id="stat-filled">—</div><div class="lbl">เติมสำเร็จ</div></div>
     <div class="stat-box skipped"><div class="val" id="stat-skipped">—</div><div class="lbl">ข้าม</div></div>
     <div class="stat-box errors"><div class="val" id="stat-errors">—</div><div class="lbl">ผิดพลาด</div></div>
+  </div>
+</div>
+
+<!-- floating log -->
+<div class="log-float" id="log-float">
+  <div class="log-float-head" id="log-float-head" onclick="toggleLog()">
+    <div class="dot"></div>
+    <span class="title">Log การทำงาน</span>
+    <span class="cnt" id="log-count" style="display:none">0</span>
+    <button class="btn-clear" style="margin-left:8px;padding:3px 8px;font-size:11px" onclick="event.stopPropagation();clearLog()">ล้าง</button>
+    <span class="chevron">▲</span>
+  </div>
+  <div class="log-float-body">
+    <div class="log-panel" id="log-panel">
+      <div class="log-empty" id="log-empty" style="padding:20px 0;font-size:12px;font-family:var(--sans)">
+        <span style="color:var(--text-muted)">log จะปรากฏที่นี่เมื่อรัน Fill Job</span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -774,6 +789,8 @@ function setStatus(state,text){
   const bar=document.getElementById('status-bar');
   bar.className='status-bar '+state;
   document.getElementById('status-text').textContent=text;
+  const head=document.getElementById('log-float-head');
+  if(head) head.className='log-float-head '+(state==='running'?'running':'');
 }
 function setProgress(pct,indeterminate=false){
   const bar=document.getElementById('prog-bar');
@@ -781,11 +798,23 @@ function setProgress(pct,indeterminate=false){
   else{bar.classList.remove('indeterminate');bar.style.width=pct+'%';}
 }
 
+function toggleLog(){
+  const f = document.getElementById('log-float');
+  f.classList.toggle('collapsed');
+}
+
+function showLog(){
+  const f = document.getElementById('log-float');
+  f.classList.add('visible');
+  f.classList.remove('collapsed');
+}
+
 function appendLog(type,message,time){
   const panel=document.getElementById('log-panel');
   const empty=document.getElementById('log-empty');
   if(empty) empty.remove();
   logLines++;
+  showLog();
   const lc=document.getElementById('log-count');
   lc.style.display='';
   lc.textContent=logLines+' บรรทัด';
