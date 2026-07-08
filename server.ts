@@ -140,6 +140,51 @@ async function geminiOCR(ai: GoogleGenAI, imagePart: any): Promise<any> {
   }
 }
 
+// ─── Ollama OCR (Local AI — ฟรี ไม่มีโคต้า) ──────────────────────────────────
+async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision"): Promise<any> {
+  const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+  const res = await fetch(`${ollamaUrl}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      prompt: WATER_PROMPT,
+      images: [imageBase64],
+      stream: false,
+    }),
+  });
+  if (!res.ok) throw new Error(`Ollama error: HTTP ${res.status}`);
+  const data = await res.json();
+  const text = (data.response || "{}").replace(/```json|```/g, "").trim();
+  return JSON.parse(text);
+}
+
+// ─── Universal OCR — เลือก provider จาก config ───────────────────────────────
+async function universalOCR(imageBase64: string, mimeType: string = "image/jpeg"): Promise<any> {
+  const cfg = readConfig();
+  const provider: string = cfg.aiProvider || "gemini";
+  const ollamaModel: string = cfg.ollamaModel || "llama3.2-vision";
+
+  console.log(`[OCR] ใช้ provider: ${provider}${provider === "ollama" ? ` (${ollamaModel})` : ""}`);
+
+  let result: any;
+  if (provider === "ollama") {
+    result = await ollamaOCR(imageBase64, ollamaModel);
+    result.aiProvider = "ollama";
+    result.aiModel = ollamaModel;
+  } else {
+    // default: Gemini
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") throw new Error("GEMINI_API_KEY_MISSING");
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
+    const imagePart = { inlineData: { mimeType, data: imageBase64 } };
+    result = await geminiOCR(ai, imagePart);
+    result.aiProvider = "gemini";
+    result.aiModel = GEMINI_PRIMARY;
+  }
+  return result;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -247,13 +292,17 @@ async function startServer() {
     };
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-        send('error', 'ไม่พบ GEMINI_API_KEY — ไม่สามารถรัน fill job ได้');
-        res.end(); return;
+      const cfg = readConfig();
+      const provider = cfg.aiProvider || 'gemini';
+      if (provider === 'gemini') {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+          send('error', 'ไม่พบ GEMINI_API_KEY — ไม่สามารถรัน fill job ได้ (หรือเปลี่ยนไปใช้ Ollama ในตั้งค่า)');
+          res.end(); return;
+        }
       }
 
-      send('info', `เริ่มรัน fill job ย้อนหลัง ${hoursBack} ชั่วโมง...`);
+      send('info', `เริ่มรัน fill job ย้อนหลัง ${hoursBack} ชั่วโมง... (AI: ${provider === 'ollama' ? cfg.ollamaModel || 'llama3.2-vision' : 'Gemini'})`);
 
       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -352,11 +401,8 @@ async function startServer() {
 
         while (retries <= maxRetries) {
           try {
-            const { GoogleGenAI } = await import('@google/genai');
-            const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
             const imgBuf = fs.readFileSync(snapshotPath);
-            const imagePart = { inlineData: { mimeType: 'image/jpeg', data: imgBuf.toString('base64') } };
-            ocrResult = await geminiOCR(ai, imagePart);
+            ocrResult = await universalOCR(imgBuf.toString('base64'));
             break; // สำเร็จแล้ว ออกจาก loop
           } catch (e: any) {
             const msg = e.message || '';
@@ -399,6 +445,8 @@ async function startServer() {
               waterLevel: ocrResult.waterLevel, readStatus: ocrResult.readStatus || '',
               explanation: ocrResult.explanation || '', confidence: ocrResult.confidence || 0,
               hour: hourStr, dateStr, recordedAt, fromSnapshot: true,
+              aiProvider: ocrResult.aiProvider || 'gemini',
+              aiModel: ocrResult.aiModel || '',
             };
             const all = readReadings();
             all.unshift(reading);
@@ -412,8 +460,11 @@ async function startServer() {
             skipCount++;
           }
         }
-        // delay ระหว่าง request เพื่อไม่ให้ยิง API เร็วเกินไป (15 req/min = ~4 วิ/req)
-        await new Promise(r => setTimeout(r, 4000));
+        // delay ระหว่าง request — Gemini ต้องรอ (rate limit), Ollama ไม่ต้อง
+        const currentProvider = readConfig().aiProvider || 'gemini';
+        if (currentProvider === 'gemini') {
+          await new Promise(r => setTimeout(r, 4000));
+        }
       }
 
       send('success', `🎉 เสร็จสิ้น — เติมสำเร็จ ${filledCount} รายการ, อ่านไม่ได้ ${skipCount} รายการ, error ${errorCount} รายการ`);
@@ -521,6 +572,20 @@ async function startServer() {
     }
   });
 
+  // GET /api/ollama-status — เช็คสถานะ Ollama และ model ที่มี
+  app.get("/api/ollama-status", async (_req, res) => {
+    try {
+      const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+      const r = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      const models = (data.models || []).map((m: any) => m.name);
+      res.json({ ok: true, models, url: ollamaUrl });
+    } catch (e: any) {
+      res.json({ ok: false, error: e.message, models: [] });
+    }
+  });
+
   // GET /api/zones — ดึง zones ทั้งหมด (ถ้าไม่มีใน config ส่ง null ให้ App.tsx ใช้ INITIAL_ZONES แทน)
   app.get("/api/zones", (_req, res) => {
     try {
@@ -551,20 +616,17 @@ async function startServer() {
       if (!imageUrl && !imageBase64) {
         return res.status(400).json({ error: "Please provide either imageUrl or imageBase64" });
       }
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-        return res.status(400).json({ error: "GEMINI_API_KEY_MISSING" });
-      }
-      const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
-      let imagePart: any;
+      let base64Data: string;
+      let mime: string = mimeType || "image/jpeg";
       if (imageBase64) {
-        imagePart = { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64.replace(/^data:image\/\w+;base64,/, "") } };
+        base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
       } else {
         const imageRes = await fetch(imageUrl);
         if (!imageRes.ok) throw new Error(`ดึงภาพไม่ได้: ${imageRes.status}`);
-        imagePart = { inlineData: { mimeType: imageRes.headers.get("content-type") || "image/jpeg", data: Buffer.from(await imageRes.arrayBuffer()).toString("base64") } };
+        mime = imageRes.headers.get("content-type") || "image/jpeg";
+        base64Data = Buffer.from(await imageRes.arrayBuffer()).toString("base64");
       }
-      res.json(await geminiOCR(ai, imagePart));
+      res.json(await universalOCR(base64Data, mime));
     } catch (err: any) {
       res.status(500).json({ error: "SERVICE_ERROR", message: err.message });
     }
@@ -632,16 +694,20 @@ async function startServer() {
       const systemSecret = process.env.CRON_SECRET || "watpuek_cloud_sync_secret";
       if (!secret || secret !== systemSecret) return res.status(401).json({ status: "unauthorized" });
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") return res.status(400).json({ status: "config_error" });
+      // เช็ค provider ก่อน (ถ้าใช้ Gemini ต้องมี API key)
+      const cfg = readConfig();
+      const provider = cfg.aiProvider || "gemini";
+      if (provider === "gemini") {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey || apiKey === "MY_GEMINI_API_KEY") return res.status(400).json({ status: "config_error", message: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" });
+      }
 
       const snapshotUrl = `http://localhost:${PORT}/api/snapshot/${camId}?secret=${systemSecret}&camPath=${encodeURIComponent(camPath)}`;
       const imageRes = await fetch(snapshotUrl);
       if (!imageRes.ok) throw new Error(`ดึงภาพไม่ได้: HTTP ${imageRes.status}`);
 
-      const imagePart = { inlineData: { mimeType: imageRes.headers.get("content-type") || "image/jpeg", data: Buffer.from(await imageRes.arrayBuffer()).toString("base64") } };
-      const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
-      const ocrResult = await geminiOCR(ai, imagePart);
+      const imageBase64 = Buffer.from(await imageRes.arrayBuffer()).toString("base64");
+      const ocrResult = await universalOCR(imageBase64, imageRes.headers.get("content-type") || "image/jpeg");
 
       const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
       const thaiMonths = ["มก.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -650,7 +716,7 @@ async function startServer() {
       const dateStr = `${now.getDate()} ${thaiMonths[now.getMonth()]}`;
       const hour = `${pad(now.getHours())}:00`;
 
-      const payload = { zoneName, camLabel, waterLevel: ocrResult.waterLevel, readStatus: ocrResult.readStatus, explanation: ocrResult.explanation, confidence: ocrResult.confidence, hour, dateStr, recordedAt };
+      const payload = { zoneName, camLabel, waterLevel: ocrResult.waterLevel, readStatus: ocrResult.readStatus, explanation: ocrResult.explanation, confidence: ocrResult.confidence, hour, dateStr, recordedAt, aiProvider: ocrResult.aiProvider || 'gemini', aiModel: ocrResult.aiModel || '' };
 
       // บันทึกลง local file แทน Google Sheets
       const readings = readReadings();
@@ -864,8 +930,12 @@ async function startServer() {
   };
 
   const fillMissingFromSnapshots = async (hoursBack: number = 24): Promise<number> => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') return 0;
+    const cfg = readConfig();
+    const provider = cfg.aiProvider || 'gemini';
+    if (provider === 'gemini') {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') return 0;
+    }
 
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -912,9 +982,7 @@ async function startServer() {
       const dateStr = `${checkDate.getDate()} ${thaiMonths[checkDate.getMonth()]}`;
       try {
         const imgBuf = fs.readFileSync(snapshotPath);
-        const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
-        const imagePart = { inlineData: { mimeType: 'image/jpeg', data: imgBuf.toString('base64') } };
-        const ocrResult = await geminiOCR(ai, imagePart);
+        const ocrResult = await universalOCR(imgBuf.toString('base64'));
 
         const recordedAt = `${pad(checkDate.getDate())}/${pad(checkDate.getMonth()+1)}/${checkDate.getFullYear()+543} ${hourStr}:00`;
 
@@ -930,6 +998,8 @@ async function startServer() {
           dateStr,
           recordedAt,
           fromSnapshot: true,
+          aiProvider: ocrResult.aiProvider || 'gemini',
+          aiModel: ocrResult.aiModel || '',
         };
 
         if (ocrResult.waterLevel != null) {
@@ -985,8 +1055,12 @@ async function startServer() {
   };
 
   const runHourlyScan = async () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') { console.log('[Cron] ไม่พบ GEMINI_API_KEY'); return; }
+    const cfg = readConfig();
+    const provider = cfg.aiProvider || 'gemini';
+    if (provider === 'gemini') {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') { console.log('[Cron] ไม่พบ GEMINI_API_KEY — ข้ามการสแกน'); return; }
+    }
     const targetCams = getTargetCams();
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
     console.log(`[Cron] เริ่มสแกน ${new Date().toLocaleTimeString('th-TH')} (${targetCams.length} กล้อง)`);

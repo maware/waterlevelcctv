@@ -414,6 +414,7 @@
             <th>ระดับน้ำ</th>
             <th>สถานะ</th>
             <th class="hide-mobile">ความแม่นยำ</th>
+            <th class="hide-mobile">AI</th>
             <th>จัดการ</th>
           </tr>
         </thead>
@@ -531,6 +532,35 @@
           <label style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
             <input type="checkbox" id="sc-cam10" value="cam10"> CAM 10 — ทุ่งตาอิน
           </label>
+        </div>
+      </div>
+
+      <!-- AI Provider Selector -->
+      <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0">
+      <div class="form-group">
+        <label style="font-weight:600;margin-bottom:10px;display:block">🤖 AI Provider สำหรับอ่านภาพ</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <label id="lbl-gemini" style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:2px solid #1d4ed8;border-radius:8px;cursor:pointer;background:#eff6ff">
+            <input type="radio" name="ai-provider" value="gemini" id="ai-gemini" onchange="onAiProviderChange()" style="margin-top:3px">
+            <span>☁️ <strong>Gemini</strong><br><small style="color:#64748b">Google Cloud (ต้อง API Key)</small></span>
+          </label>
+          <label id="lbl-ollama" style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer">
+            <input type="radio" name="ai-provider" value="ollama" id="ai-ollama" onchange="onAiProviderChange()" style="margin-top:3px">
+            <span>🖥️ <strong>Ollama</strong><br><small style="color:#64748b">Local AI (ฟรี ไม่มีโคต้า)</small></span>
+          </label>
+        </div>
+        <div id="ollama-options" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px">
+          <label style="font-size:13px;color:#166534;font-weight:600;margin-bottom:6px;display:block">Model</label>
+          <select id="ollama-model" style="width:100%;padding:8px;border:1px solid #86efac;border-radius:6px;font-size:14px;background:white;margin-bottom:8px">
+            <option value="llama3.2-vision">llama3.2-vision (แนะนำ — แม่นสูง)</option>
+            <option value="llava:13b">llava:13b (แม่นมาก)</option>
+            <option value="llava:7b">llava:7b (เร็ว)</option>
+            <option value="moondream">moondream (เล็กมาก ~1.7GB)</option>
+          </select>
+          <button onclick="testOllama()" style="padding:6px 14px;background:#16a34a;color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;margin-bottom:6px">
+            🔌 ทดสอบการเชื่อมต่อ
+          </button>
+          <div id="ollama-test-result" style="font-size:12px;margin-top:4px"></div>
         </div>
       </div>
 
@@ -765,10 +795,15 @@
       const tbody = document.getElementById('table-body');
 
       if (slice.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty">ไม่พบข้อมูล</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">ไม่พบข้อมูล</td></tr>';
       } else {
         tbody.innerHTML = slice.map(r => {
           const badgeClass = r.readStatus === 'วิกฤต' ? 'badge-crisis' : r.readStatus === 'เฝ้าระวัง' ? 'badge-watch' : 'badge-normal';
+          const aiBadge = r.aiProvider === 'ollama'
+            ? `<span title="${r.aiModel || 'ollama'}" style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:4px;white-space:nowrap;font-weight:600">🖥️ ${r.aiModel ? r.aiModel.split(':')[0] : 'Ollama'}</span>`
+            : r.aiProvider === 'gemini'
+            ? `<span title="${r.aiModel || 'Gemini'}" style="font-size:11px;background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:4px;white-space:nowrap;font-weight:600">☁️ Gemini</span>`
+            : `<span style="font-size:11px;color:#94a3b8">—</span>`;
           return `
           <tr style="cursor:pointer" onclick="toggleDetail('detail-${r.id}', this)">
             <td>${r.recordedAt || r.dateStr || '—'}${r.fromSnapshot ? ' <span title="เติมจาก snapshot" style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;white-space:nowrap">📷 snapshot</span>' : ''}</td>
@@ -778,18 +813,20 @@
             <td><span class="level-num">${r.waterLevel != null ? r.waterLevel.toFixed(2) : '—'}</span> ม.</td>
             <td><span class="badge ${badgeClass}">${r.readStatus || '—'}</span></td>
             <td class="hide-mobile">${r.confidence ? (r.confidence * 100).toFixed(0) + '%' : '—'}</td>
+            <td class="hide-mobile">${aiBadge}</td>
             <td>
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteOne('${r.id}')">ลบ</button>
             </td>
           </tr>
           <tr id="detail-${r.id}" style="display:none;background:#f8fafc">
-            <td colspan="8" style="padding:12px 16px;border-bottom:2px solid #e2e8f0">
+            <td colspan="9" style="padding:12px 16px;border-bottom:2px solid #e2e8f0">
               <div style="font-size:14px;color:#1e293b;line-height:1.7">
                 <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:8px">
                   <span><b>ระดับน้ำ:</b> <span style="color:#1e3a5f;font-weight:900;font-size:18px">${r.waterLevel != null ? r.waterLevel.toFixed(2) : '—'} ม.</span></span>
                   <span><b>ความแม่นยำ:</b> ${r.confidence ? (r.confidence * 100).toFixed(0) + '%' : '—'}</span>
                   <span><b>ชั่วโมง:</b> ${r.hour || '—'}</span>
                   <span><b>วันที่:</b> ${r.dateStr || '—'}</span>
+                  <span><b>AI:</b> ${r.aiProvider === 'ollama' ? `🖥️ Ollama (${r.aiModel || 'local'})` : r.aiProvider === 'gemini' ? `☁️ Gemini (${r.aiModel || ''})` : '—'}</span>
                   ${r.fromSnapshot ? '<span style="color:#7c3aed"><b>📷 ที่มา:</b> เติมค่าจาก snapshot (สแกนสดไม่สำเร็จ)</span>' : ''}
                 </div>
                 ${r.explanation ? `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;color:#475569"><b>📝 คำอธิบาย AI:</b><br>${r.explanation}</div>` : '<div style="color:#94a3b8">ไม่มีคำอธิบาย</div>'}
@@ -1178,6 +1215,12 @@
           const el = document.getElementById('viz-' + zoneId);
           if (el) el.checked = !hiddenZones.includes(zoneId);
         });
+        // โหลด AI provider
+        const provider = cfg.aiProvider || 'gemini';
+        const radio = document.getElementById('ai-' + provider);
+        if (radio) radio.checked = true;
+        if (cfg.ollamaModel) document.getElementById('ollama-model').value = cfg.ollamaModel;
+        onAiProviderChange();
       } catch { }
       document.getElementById('settings-log').style.display = 'none';
       document.getElementById('settings-modal').classList.add('open');
@@ -1205,22 +1248,55 @@
       log.style.display = 'block';
       log.textContent = '⏳ กำลังบันทึก...';
 
+      const aiProvider = document.querySelector('input[name="ai-provider"]:checked')?.value || 'gemini';
+      const ollamaModel = document.getElementById('ollama-model').value;
+
       try {
         const res = await fetch('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scanCams: selected, hiddenZones })
+          body: JSON.stringify({ scanCams: selected, hiddenZones, aiProvider, ollamaModel })
         });
         const data = await res.json();
         if (data.status === 'success') {
           const hiddenNames = { 'zone-1': 'บ้านน้ำขุ่น', 'zone-2': 'วัดกะทิง', 'zone-3': 'วัดปึก', 'zone-4': 'บ้านแตงเม', 'zone-5': 'วัดทุ่งตาอิน' };
           const hiddenText = hiddenZones.length > 0 ? `\nซ่อนโซน: ${hiddenZones.map(z => hiddenNames[z]).join(', ')}` : '\nแสดงทุกโซน';
-          log.textContent = `✅ บันทึกแล้ว — กล้องที่สแกน: ${selected.map(c => c.camLabel).join(', ')}${hiddenText}\nถ้าสแกนสดไม่สำเร็จ ระบบจะเช็คและเติมค่าจาก snapshot ให้อัตโนมัติทุก 5 นาที (ดูได้ที่ปุ่ม "Log การเติมค่า")`;
+          const aiText = aiProvider === 'ollama' ? `\nAI: Ollama (${ollamaModel})` : '\nAI: Gemini (Cloud)';
+          log.textContent = `✅ บันทึกแล้ว — กล้องที่สแกน: ${selected.map(c => c.camLabel).join(', ')}${hiddenText}${aiText}\nถ้าสแกนสดไม่สำเร็จ ระบบจะเช็คและเติมค่าจาก snapshot ให้อัตโนมัติทุก 5 นาที (ดูได้ที่ปุ่ม "Log การเติมค่า")`;
         } else {
           log.textContent = '❌ บันทึกไม่สำเร็จ';
         }
       } catch (err) {
         log.textContent = '❌ Error: ' + err.message;
+      }
+    }
+
+    function onAiProviderChange() {
+      const isOllama = document.getElementById('ai-ollama').checked;
+      document.getElementById('ollama-options').style.display = isOllama ? 'block' : 'none';
+      document.getElementById('lbl-ollama').style.borderColor = isOllama ? '#16a34a' : '#e2e8f0';
+      document.getElementById('lbl-ollama').style.background = isOllama ? '#f0fdf4' : '';
+      document.getElementById('lbl-gemini').style.borderColor = !isOllama ? '#1d4ed8' : '#e2e8f0';
+      document.getElementById('lbl-gemini').style.background = !isOllama ? '#eff6ff' : '';
+    }
+
+    async function testOllama() {
+      const result = document.getElementById('ollama-test-result');
+      result.textContent = '⏳ กำลังทดสอบ...';
+      result.style.color = '#64748b';
+      try {
+        const res = await fetch('/api/ollama-status');
+        const data = await res.json();
+        if (data.ok) {
+          result.textContent = `✅ เชื่อมต่อสำเร็จ — พบ ${data.models.length} model: ${data.models.join(', ')}`;
+          result.style.color = '#16a34a';
+        } else {
+          result.textContent = `❌ เชื่อมต่อไม่ได้: ${data.error}`;
+          result.style.color = '#dc2626';
+        }
+      } catch (e) {
+        result.textContent = '❌ Ollama ไม่ได้รัน — ตรวจสอบว่าเปิด Ollama แล้ว';
+        result.style.color = '#dc2626';
       }
     }
 
