@@ -18,42 +18,32 @@ const GEMINI_PRIMARY = "gemini-2.5-flash";
 const GEMINI_FALLBACK = "gemini-3.1-flash-lite";
 
 // Prompt สำหรับ Gemini — เข้าใจ example ได้ดี
-const WATER_PROMPT_GEMINI = `You are an expert AI Water Level reader for a CCTV flood monitoring system in Thailand. Your job is to read the water level from a yellow staff gauge in the image.
+const WATER_PROMPT_GEMINI = `You are a number reader for a Thai flood CCTV system. Look at this image and read ALL decimal numbers you can see anywhere in the image.
 
-READING STRATEGY — follow in order:
-1. Scan the ENTIRE image for a yellow ruler/gauge with printed decimal numbers (e.g. 4.01, 4.02, 4.03)
-2. Even if the image is blurry, reflective, or partially obscured — TRY TO READ. Do NOT give up easily.
-3. List EVERY number you can make out, even partially. Use surrounding context (spacing, adjacent visible digits) to infer unclear digits.
-4. The water level is the LOWEST complete number visible in the image.
-5. The BOTTOM EDGE is a cut line — numbers cut off at the bottom are incomplete, do not use them as the answer.
-6. If you can see part of a number and can reasonably infer the full value from context, DO SO and note lower confidence.
-7. ถ้าเห็นเลขบางส่วนให้ประมาณค่าได้ โดยใช้ความมั่นใจต่ำ (confidence < 0.7)
-8. Only return waterLevel:null if the gauge is COMPLETELY invisible or the image is total darkness.
+STEP 1 — READ: List every number you can see, even if blurry, partial, or cut off. Do not filter. Do not judge. Just read and list everything.
+STEP 2 — PICK: From your list, pick numbers that look like water level markings (format X.XX, range 0.50–9.99). The answer is the LOWEST of these.
+STEP 3 — EDGE RULE: Numbers cut off at the BOTTOM edge of image are incomplete — exclude from answer but still list in detectedMarkings.
 
-IMPORTANT: Blurry images often still contain readable numbers. Reflections and glare do not prevent reading — look around them.
+- Blurry/reflective image: still try. Use digit spacing and context to estimate unclear digits.
+- If you see any X.XX format numbers at all → gaugeFound:true, set waterLevel to lowest valid one.
+- Only if image is completely dark or no numbers anywhere → gaugeFound:false, waterLevel:null.
 
 Return ONLY JSON (no markdown):
-{"waterLevel":4.81,"confidence":0.95,"gaugeFound":true,"readStatus":"เฝ้าระวัง","explanation":"...","detectedMarkings":["4.81","4.82","4.83","4.84","4.85"]}
+{"waterLevel":4.01,"confidence":0.85,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"saw 4.03 top-left, 4.02 right, 4.01 partial bottom","detectedMarkings":["4.03","4.02","4.01"]}
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
 
 // Prompt สำหรับ Ollama (llava, moondream)
-const WATER_PROMPT_OLLAMA = `Look at this image. Find a yellow ruler/gauge with decimal numbers (like 4.01, 4.02, 4.03 format).
+const WATER_PROMPT_OLLAMA = `Read ALL decimal numbers visible in this image. List everything you can see (format X.XX).
 
-Step 1: Is there a yellow gauge visible? Even if blurry or partially lit?
-- Completely dark/missing gauge only → {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"no gauge","detectedMarkings":[]}
+Step 1: List every decimal number in the image. Blurry is OK — estimate from context.
+Step 2: Pick the LOWEST number between 0.50 and 9.99. That is the water level.
+Step 3: Numbers cut off at the bottom edge are incomplete — exclude from answer.
 
-Step 2: TRY TO READ even if blurry or reflective. Look around glare spots. Use digit spacing and context to infer unclear digits. List every number you can make out.
-
-Step 3: Pick the LOWEST number. That is the water level. If partial, estimate with low confidence.
-
-RULES:
-- Thai text or words are NOT numbers — ignore them
-- Blurry does NOT automatically mean unreadable — always try
-- Numbers in this prompt are FORMAT EXAMPLES ONLY — never copy them as answers
-- Only return null if gauge is truly completely invisible
+- Only return waterLevel:null if image is completely dark or has zero numbers anywhere.
+- Numbers in this prompt are FORMAT EXAMPLES — never copy as answers.
 
 Return ONLY valid JSON:
-{"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"what you see","detectedMarkings":[]}
+{"waterLevel":4.01,"confidence":0.8,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"what you see","detectedMarkings":["4.03","4.02","4.01"]}
 
 readStatus: below 4.10 = "ระดับปกติ", 4.10-4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"`;
 
@@ -237,9 +227,12 @@ async function universalOCR(imageBase64: string, mimeType: string = "image/jpeg"
     result.aiProvider = "gemini";
     result.aiModel = GEMINI_PRIMARY;
   }
-  // ถ้าอ่านไม่ได้ให้แสดงเป็น 0.00 แทน null
+  // validate range — ถ้าได้เลขแปลกๆ นอก range มาตรวัด ให้ถือว่าอ่านไม่ได้
+  if (result.waterLevel != null && (result.waterLevel < 0.5 || result.waterLevel > 9.99)) {
+    result.explanation = `(out of range: ${result.waterLevel}) ` + (result.explanation || '');
+    result.waterLevel = null;
+  }
   if (result.waterLevel == null) {
-    result.waterLevel = 0;
     result.readStatus = result.readStatus || 'อ่านไม่ได้';
     result.confidence = result.confidence || 0;
   }
