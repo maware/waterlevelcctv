@@ -50,7 +50,7 @@ Return ONLY this JSON format with no other text:
 
 readStatus rules: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
 
-IMPORTANT: Only report numbers you physically see in the image. If unsure, set waterLevel to null.`;
+IMPORTANT: Only report numbers you physically see in the image. If unsure, set waterLevel to null.`;`;
 
 // ใช้ prompt ตามประเภท provider
 const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
@@ -187,8 +187,23 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
   });
   if (!res.ok) throw new Error(`Ollama error: HTTP ${res.status}`);
   const data = await res.json();
-  const text = stripMarkdown(data.response || "{}");
-  return JSON.parse(text);
+  let text = stripMarkdown(data.response || "{}");
+
+  // ถ้า llava ตอบ JSON ไม่สมบูรณ์ ให้ดึง JSON ออกมาจาก text
+  try {
+    return JSON.parse(text);
+  } catch {
+    // ลองหา JSON object ใน text
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {}
+    }
+    // ถ้า parse ไม่ได้เลย return null
+    console.warn("[Ollama] ตอบ JSON ไม่ถูก format:", text.substring(0, 200));
+    return { waterLevel: null, confidence: 0, gaugeFound: false, readStatus: "อ่านไม่ได้", explanation: text.substring(0, 200), detectedMarkings: [] };
+  }
 }
 
 // ─── Universal OCR — เลือก provider จาก config ───────────────────────────────
