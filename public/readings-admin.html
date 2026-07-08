@@ -729,6 +729,12 @@
         const res = await fetch('/api/readings?limit=5000');
         if (!res.ok) throw new Error('โหลดไม่ได้');
         allData = await res.json();
+        // normalize waterLevel ให้เป็น number เสมอ
+        allData = allData.map(r => ({
+          ...r,
+          waterLevel: r.waterLevel != null ? parseFloat(r.waterLevel) : null,
+          confidence: r.confidence != null ? parseFloat(r.confidence) : 0,
+        }));
         allData.reverse(); // ล่าสุดก่อน
         updateStats();
         updateZoneFilter();
@@ -743,7 +749,7 @@
       const today = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
       document.getElementById('stat-total').textContent = allData.length;
       document.getElementById('stat-today').textContent = allData.filter(r => r.dateStr === today).length;
-      const levels = allData.map(r => r.waterLevel).filter(v => v > 0);
+      const levels = allData.map(r => r.waterLevel).filter(v => v != null && typeof v === 'number' && v > 0);
       document.getElementById('stat-avg').textContent = levels.length ? (levels.reduce((a, b) => a + b, 0) / levels.length).toFixed(2) : '—';
       document.getElementById('stat-crisis').textContent = allData.filter(r => r.readStatus === 'วิกฤต').length;
     }

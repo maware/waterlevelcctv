@@ -570,30 +570,15 @@ function HourlyTelemetryTable({
 
 export default function App() {
   // State variables
-  const [zones, setZones] = useState<Zone[]>(() => {
-    // ใช้ INITIAL_ZONES เป็น default (API จะ override ใน useEffect)
-    const stored = localStorage.getItem('watpuek_zones');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error('Failed to parse stored zones', e);
-      }
-    }
-    return INITIAL_ZONES;
-  });
-  const [gatewayUrl, setGatewayUrl] = useState<string>(() => {
-    return localStorage.getItem('watpuek_gateway') || 'https://webrtc.watpuekwater.org';
-  });
+  const [zones, setZones] = useState<Zone[]>(INITIAL_ZONES);
+  const [gatewayUrl, setGatewayUrl] = useState<string>('https://webrtc.watpuekwater.org');
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>('480p');
   
   // Suffix parameters corresponding to different MediaMTX transcodings
   const [suffix480p, setSuffix480p] = useState<string>('_480p');
   const [suffix720p, setSuffix720p] = useState<string>('_480p');
   const [suffix1080p, setSuffix1080p] = useState<string>('_1080p');
-  const [appsScriptUrl, setAppsScriptUrl] = useState<string>(() => {
-    return localStorage.getItem('watpuek_apps_script_url') || '';
-  });
+  const [appsScriptUrl, setAppsScriptUrl] = useState<string>('');
 
   // Stored live hourly readings, fetched or saved locally/clouddy
   // key of dictionary: `${zoneId}_${hour}`
@@ -621,14 +606,7 @@ export default function App() {
   const [cloudSyncState, setCloudSyncState] = useState<'loading' | 'online' | 'offline'>('online');
 
   // Google Sheets history readings state variables
-  const [sheetReadings, setSheetReadings] = useState<SheetReading[]>(() => {
-    try {
-      const saved = localStorage.getItem('watpuek_history_sheet_readings');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [sheetReadings, setSheetReadings] = useState<SheetReading[]>([]);
   const [isReadingSheet, setIsReadingSheet] = useState<boolean>(false);
 
   // Logs terminal state
@@ -670,9 +648,7 @@ export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('watpuek_admin_logged') === 'true';
   });
-  const [adminPassword, setAdminPassword] = useState<string>(() => {
-    return localStorage.getItem('watpuek_admin_password') || '12345678';
-  });
+  const [adminPassword, setAdminPassword] = useState<string>('12345678');
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
@@ -1185,7 +1161,6 @@ export default function App() {
     const updatedZones = [...zones];
     updatedZones[activeZoneIndex].cams = [...(updatedZones[activeZoneIndex].cams || []), newCam];
     setZones(updatedZones);
-    localStorage.setItem('watpuek_zones', JSON.stringify(updatedZones));
     addLog('success', `เพิ่มกล้องใหม่ในโซน [${activeZone.name}]`);
     if (googleToken) autoSyncToGoogleSheet(updatedZones);
   };
@@ -1198,7 +1173,6 @@ export default function App() {
     const updatedZones = [...zones];
     updatedZones[zIdx].cams = updatedZones[zIdx].cams.filter((_, i) => i !== cIdx);
     setZones(updatedZones);
-    localStorage.setItem('watpuek_zones', JSON.stringify(updatedZones));
     addLog('success', `ลบกล้อง [${cam.label}] ออกจาก [${zone.name}] แล้ว`);
     if (googleToken) autoSyncToGoogleSheet(updatedZones);
   };
@@ -1280,13 +1254,9 @@ export default function App() {
 
 
 
-  // Auto-save zones + config to localStorage whenever they change (admin edits persist instantly)
+  // Auto-save zones + config to localStorage เฉพาะที่จำเป็น
   useEffect(() => {
     if (!isAdminLoggedIn) return;
-    localStorage.setItem('watpuek_zones', JSON.stringify(zones));
-    localStorage.setItem('watpuek_gateway', gatewayUrl);
-    localStorage.setItem('watpuek_admin_password', adminPassword);
-    localStorage.setItem('watpuek_apps_script_url', appsScriptUrl);
     const t = new Date().toLocaleTimeString('th-TH');
     setLastLocalSaved(t);
   }, [zones, gatewayUrl, adminPassword, appsScriptUrl, isAdminLoggedIn]);
@@ -1300,11 +1270,9 @@ export default function App() {
           const cfg = await res.json();
           if (cfg.adminPassword) {
             setAdminPassword(cfg.adminPassword);
-            localStorage.setItem('watpuek_admin_password', cfg.adminPassword);
           }
           if (cfg.gatewayUrl) {
             setGatewayUrl(cfg.gatewayUrl);
-            localStorage.setItem('watpuek_gateway', cfg.gatewayUrl);
           }
           if (cfg.selectedQuality) setSelectedQuality(cfg.selectedQuality as VideoQuality);
           if (cfg.suffix480p) setSuffix480p(cfg.suffix480p);
@@ -1324,7 +1292,6 @@ export default function App() {
               hidden: Array.isArray(cfg.hiddenZones) ? cfg.hiddenZones.includes(z.id) : false,
             }));
             setZones(serverZones);
-            localStorage.setItem('watpuek_zones', JSON.stringify(serverZones));
           }
         }
         setCloudSyncState('online');
@@ -1377,7 +1344,6 @@ export default function App() {
       if (!res.ok) throw new Error('โหลดไม่ได้');
       const readings: SheetReading[] = await res.json();
       setSheetReadings(readings);
-      localStorage.setItem('watpuek_history_sheet_readings', JSON.stringify(readings));
       addLog('success', `ดึงข้อมูลประวัติจำนวน ${readings.length} รายการสำเร็จ`);
     } catch (err: any) {
       addLog('warn', `ดึงประวัติไม่ได้: ${err.message}`);
@@ -1404,9 +1370,6 @@ export default function App() {
         body: JSON.stringify({ adminPassword, gatewayUrl, selectedQuality, suffix480p, suffix720p, suffix1080p })
       });
       if (res.ok) {
-        localStorage.setItem('watpuek_zones', JSON.stringify(zones));
-        localStorage.setItem('watpuek_gateway', gatewayUrl);
-        localStorage.setItem('watpuek_admin_password', adminPassword);
         addLog('success', 'บันทึก config ลงเซิร์ฟเวอร์สำเร็จ');
         alert('บันทึกข้อมูลสำเร็จ!');
       }
@@ -1436,7 +1399,6 @@ export default function App() {
 
     const updatedZones = [...zones, newZone];
     setZones(updatedZones);
-    localStorage.setItem('watpuek_zones', JSON.stringify(updatedZones));
     setActiveZoneIndex(updatedZones.length - 1);
     addLog('success', `เพิ่มกลุ่มโซนกล้องใหม่สำเร็จ: [${zoneName}] — แก้ไขชื่อได้ที่ช่องชื่อโซน`);
 
@@ -1455,7 +1417,6 @@ export default function App() {
     
     const updatedZones = zones.filter((_, idx) => idx !== zIdx);
     setZones(updatedZones);
-    localStorage.setItem('watpuek_zones', JSON.stringify(updatedZones));
     if (activeZoneIndex >= updatedZones.length) {
       setActiveZoneIndex(Math.max(0, updatedZones.length - 1));
     }
@@ -3925,7 +3886,6 @@ export default function App() {
                       }
                       const finalPass = newPassword;
                       setAdminPassword(finalPass);
-                      localStorage.setItem('watpuek_admin_password', finalPass);
                       setNewPassword('');
                       setConfirmNewPassword('');
                       setPasswordStatusMessage({ text: 'เปลี่ยนรหัสผ่านผู้ดูแลระบบสำเร็จแล้ว!', isError: false });
@@ -4018,7 +3978,6 @@ export default function App() {
                           value={gatewayUrl}
                           onChange={(e) => {
                             setGatewayUrl(e.target.value);
-                            localStorage.setItem('watpuek_gateway', e.target.value);
                           }}
                           placeholder="https://webrtc.watpuekwater.org"
                           className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 ${
@@ -4029,7 +3988,6 @@ export default function App() {
                           type="button"
                           onClick={() => {
                             setGatewayUrl('https://webrtc.watpuekwater.org');
-                            localStorage.setItem('watpuek_gateway', 'https://webrtc.watpuekwater.org');
                             addLog('info', 'คืนค่าเริ่มต้นเซิร์ฟเวอร์ HLS เป็น webrtc.watpuekwater.org');
                           }}
                           className={`p-1.5 px-3 rounded-lg text-xs font-bold cursor-pointer border transition ${

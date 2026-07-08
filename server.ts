@@ -32,25 +32,25 @@ Return ONLY JSON (no markdown):
 {"waterLevel":4.81,"confidence":0.95,"gaugeFound":true,"readStatus":"เฝ้าระวัง","explanation":"...","detectedMarkings":["4.81","4.82","4.83","4.84","4.85"]}
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
 
-// Prompt สำหรับ Ollama (llava, moondream) — ไม่ใส่ตัวเลขตัวอย่างเพราะ hallucinate
-const WATER_PROMPT_OLLAMA = `You are a water level reading assistant. Look at this CCTV image of a water gauge in a canal.
+// Prompt สำหรับ Ollama (llava, moondream)
+const WATER_PROMPT_OLLAMA = `You are a water level reading assistant. Look at this CCTV image of a water gauge in a canal. The gauge is a yellow ruler with black numbers printed on it.
 
-TASK: Read the numbers printed on the gauge ruler in the image.
+TASK: Read the actual numbers printed on the gauge ruler visible in this image.
 
 RULES:
-1. Look carefully at the actual image. Find the ruler/gauge with numbers on it.
-2. Read ONLY numbers that are physically printed and visible in this image.
-3. Do NOT invent, guess, or use any numbers not visible in the image.
-4. The bottom edge of the image cuts off numbers - only count numbers fully visible.
-5. From fully visible numbers, select the LOWEST as the water level.
-6. If no gauge is visible, set gaugeFound to false and waterLevel to null.
+1. Find the yellow ruler/gauge with numbers printed on it in the image.
+2. Scan numbers from top to bottom of the gauge.
+3. The BOTTOM EDGE of the image is a CUT LINE — numbers partially cut off at bottom are INCOMPLETE.
+4. Only count numbers where ALL digits are fully visible.
+5. From all fully visible complete numbers, select the LOWEST value as the water level.
+6. Example of how to read: if you see numbers 2.50, 2.49, 2.48 fully visible → water level is 2.48 (lowest).
+7. If you cannot see any gauge or numbers clearly, set gaugeFound to false.
 
-Return ONLY this JSON format with no other text:
-{"waterLevel":ACTUAL_NUMBER_OR_null,"confidence":0.0_TO_1.0,"gaugeFound":true_OR_false,"readStatus":"STATUS","explanation":"what you see","detectedMarkings":["LIST","OF","ACTUAL","NUMBERS","SEEN"]}
+Return ONLY valid JSON, no other text before or after:
+{"waterLevel":2.48,"confidence":0.90,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"saw numbers 2.50 2.49 2.48 on yellow gauge","detectedMarkings":["2.50","2.49","2.48"]}
 
-readStatus rules: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
-
-IMPORTANT: Only report numbers you physically see in the image. If unsure, set waterLevel to null.`;`;
+readStatus: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
+Replace 2.48 and example values above with the ACTUAL numbers you see in THIS image.`;
 
 // ใช้ prompt ตามประเภท provider
 const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
@@ -175,6 +175,7 @@ async function geminiOCR(ai: GoogleGenAI, imagePart: any): Promise<any> {
 // ─── Ollama OCR (Local AI — ฟรี ไม่มีโคต้า) ──────────────────────────────────
 async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision"): Promise<any> {
   const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
+  console.log(`[Ollama] เริ่มส่งภาพไปยัง ${model} (base64: ${imageBase64.length} chars)`);
   const res = await fetch(`${ollamaUrl}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -187,22 +188,24 @@ async function ollamaOCR(imageBase64: string, model: string = "llama3.2-vision")
   });
   if (!res.ok) throw new Error(`Ollama error: HTTP ${res.status}`);
   const data = await res.json();
-  let text = stripMarkdown(data.response || "{}");
-
-  // ถ้า llava ตอบ JSON ไม่สมบูรณ์ ให้ดึง JSON ออกมาจาก text
+  const rawResponse = data.response || "{}";
+  console.log(`[Ollama] ตอบกลับ: ${rawResponse.substring(0, 400)}`);
+  const text = stripMarkdown(rawResponse);
   try {
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    console.log(`[Ollama] waterLevel=${parsed.waterLevel}, gaugeFound=${parsed.gaugeFound}, confidence=${parsed.confidence}`);
+    return parsed;
   } catch {
-    // ลองหา JSON object ใน text
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
       try {
-        return JSON.parse(match[0]);
+        const parsed = JSON.parse(match[0]);
+        console.log(`[Ollama] parse จาก regex — waterLevel=${parsed.waterLevel}`);
+        return parsed;
       } catch {}
     }
-    // ถ้า parse ไม่ได้เลย return null
-    console.warn("[Ollama] ตอบ JSON ไม่ถูก format:", text.substring(0, 200));
-    return { waterLevel: null, confidence: 0, gaugeFound: false, readStatus: "อ่านไม่ได้", explanation: text.substring(0, 200), detectedMarkings: [] };
+    console.warn("[Ollama] JSON ไม่ถูก format:", rawResponse.substring(0, 300));
+    return { waterLevel: null, confidence: 0, gaugeFound: false, readStatus: "อ่านไม่ได้", explanation: rawResponse.substring(0, 200), detectedMarkings: [] };
   }
 }
 
@@ -737,22 +740,40 @@ async function startServer() {
 
   // ─── Hourly scan trigger ──────────────────────────────────────────────────
   app.all("/api/trigger-hourly-scan", async (req, res) => {
+    const secret        = req.query.secret      || req.body.secret;
+    const camId         = (req.query.camId      || req.body.camId      || "cam2") as string;
+    const camPath       = (req.query.camPath    || req.body.camPath    || `${camId}_480p`) as string;
+    const zoneName      = (req.query.zoneName   || req.body.zoneName   || "") as string;
+    const camLabel      = (req.query.camLabel   || req.body.camLabel   || camId) as string;
+
+    const systemSecret = process.env.CRON_SECRET || "watpuek_cloud_sync_secret";
+    if (!secret || secret !== systemSecret) return res.status(401).json({ status: "unauthorized" });
+
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+    const thaiMonths = ["มก.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const recordedAt = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const dateStr = `${now.getDate()} ${thaiMonths[now.getMonth()]}`;
+    const hour = `${pad(now.getHours())}:00`;
+
+    const saveReading = (payload: any) => {
+      const readings = readReadings();
+      readings.push({ id: Date.now().toString(), ...payload });
+      if (readings.length > 10000) readings.splice(0, readings.length - 10000);
+      saveReadings(readings);
+    };
+
     try {
-      const secret        = req.query.secret      || req.body.secret;
-      const camId         = (req.query.camId      || req.body.camId      || "cam2") as string;
-      const camPath       = (req.query.camPath    || req.body.camPath    || `${camId}_480p`) as string;
-      const zoneName      = (req.query.zoneName   || req.body.zoneName   || "") as string;
-      const camLabel      = (req.query.camLabel   || req.body.camLabel   || camId) as string;
-
-      const systemSecret = process.env.CRON_SECRET || "watpuek_cloud_sync_secret";
-      if (!secret || secret !== systemSecret) return res.status(401).json({ status: "unauthorized" });
-
       // เช็ค provider ก่อน (ถ้าใช้ Gemini ต้องมี API key)
       const cfg = readConfig();
       const provider = cfg.aiProvider || "gemini";
       if (provider === "gemini") {
         const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey || apiKey === "MY_GEMINI_API_KEY") return res.status(400).json({ status: "config_error", message: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" });
+        if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+          const errPayload = { zoneName, camLabel, waterLevel: null, readStatus: "error", explanation: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY", confidence: 0, hour, dateStr, recordedAt, aiProvider: 'gemini', aiModel: '' };
+          saveReading(errPayload);
+          return res.status(400).json({ status: "config_error", message: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY", data: errPayload });
+        }
       }
 
       const snapshotUrl = `http://localhost:${PORT}/api/snapshot/${camId}?secret=${systemSecret}&camPath=${encodeURIComponent(camPath)}`;
@@ -762,24 +783,14 @@ async function startServer() {
       const imageBase64 = Buffer.from(await imageRes.arrayBuffer()).toString("base64");
       const ocrResult = await universalOCR(imageBase64, imageRes.headers.get("content-type") || "image/jpeg");
 
-      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-      const thaiMonths = ["มก.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const recordedAt = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      const dateStr = `${now.getDate()} ${thaiMonths[now.getMonth()]}`;
-      const hour = `${pad(now.getHours())}:00`;
-
       const payload = { zoneName, camLabel, waterLevel: ocrResult.waterLevel, readStatus: ocrResult.readStatus, explanation: ocrResult.explanation, confidence: ocrResult.confidence, hour, dateStr, recordedAt, aiProvider: ocrResult.aiProvider || 'gemini', aiModel: ocrResult.aiModel || '' };
-
-      // บันทึกลง local file แทน Google Sheets
-      const readings = readReadings();
-      readings.push({ id: Date.now().toString(), ...payload });
-      if (readings.length > 10000) readings.splice(0, readings.length - 10000);
-      saveReadings(readings);
-
+      saveReading(payload);
       res.json({ status: "success", message: `สแกนสำเร็จ ${hour}`, data: payload });
     } catch (err: any) {
-      res.status(500).json({ status: "error", message: err.message });
+      // บันทึก error ลง readings ด้วย
+      const errPayload = { zoneName, camLabel, waterLevel: null, readStatus: "error", explanation: `error: ${err.message}`, confidence: 0, hour, dateStr, recordedAt, aiProvider: readConfig().aiProvider || 'gemini', aiModel: '' };
+      saveReading(errPayload);
+      res.status(500).json({ status: "error", message: err.message, data: errPayload });
     }
   });
 
