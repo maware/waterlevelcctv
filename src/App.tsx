@@ -2918,14 +2918,14 @@ export default function App() {
 
                         {/* Draw custom polyline and fill for logs */}
                         {(() => {
-                          const points = [...aiLogs].reverse().slice(-5);
+                          const points = [...aiLogs].reverse().slice(-5).filter((p: any) => p.waterLevel != null && typeof p.waterLevel === 'number');
                           if (points.length < 2) return null;
                           const widthStep = 380 / (points.length - 1);
                           const getX = (idx: number) => idx * widthStep + 10;
                           // maps level 0.0m - 2.5m -> 130 to 20 height coords
-                          const getY = (val: number) => 130 - (val / 2.5) * 110;
+                          const getY = (val: number) => 130 - ((val || 0) / 2.5) * 110;
 
-                          const polyPoints = points.map((p, idx) => `${getX(idx)},${getY(p.waterLevel)}`).join(' ');
+                          const polyPoints = points.map((p: any, idx: number) => `${getX(idx)},${getY(p.waterLevel || 0)}`).join(' ');
                           const fillPoints = `${getX(0)},130 ` + polyPoints + ` ${getX(points.length - 1)},130`;
 
                           return (
