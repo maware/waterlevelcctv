@@ -46,9 +46,11 @@ RULES:
 6. If no gauge is visible, set gaugeFound to false and waterLevel to null.
 
 Return ONLY this JSON format with no other text:
-{"waterLevel":ACTUAL_NUMBER_OR_null,"confidence":0.0_TO_1.0,"gaugeFound":true_OR_false,"readStatus":"ระดับปกติ_OR_เฝ้าระวัง_OR_วิกฤต","explanation":"what you see","detectedMarkings":["LIST","OF","ACTUAL","NUMBERS","SEEN"]}
+{"waterLevel":ACTUAL_NUMBER_OR_null,"confidence":0.0_TO_1.0,"gaugeFound":true_OR_false,"readStatus":"STATUS","explanation":"what you see","detectedMarkings":["LIST","OF","ACTUAL","NUMBERS","SEEN"]}
 
-readStatus rules: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"`;
+readStatus rules: below 4.10 = "ระดับปกติ", 4.10 to 4.35 = "เฝ้าระวัง", above 4.35 = "วิกฤต"
+
+IMPORTANT: Only report numbers you physically see in the image. If unsure, set waterLevel to null.`;`;
 
 // ใช้ prompt ตามประเภท provider
 const WATER_PROMPT = WATER_PROMPT_GEMINI; // default สำหรับ backward compat
@@ -205,6 +207,12 @@ async function universalOCR(imageBase64: string, mimeType: string = "image/jpeg"
     result = await geminiOCR(ai, imagePart);
     result.aiProvider = "gemini";
     result.aiModel = GEMINI_PRIMARY;
+  }
+  // ถ้าอ่านไม่ได้ให้แสดงเป็น 0.00 แทน null
+  if (result.waterLevel == null) {
+    result.waterLevel = 0;
+    result.readStatus = result.readStatus || 'อ่านไม่ได้';
+    result.confidence = result.confidence || 0;
   }
   return result;
 }
