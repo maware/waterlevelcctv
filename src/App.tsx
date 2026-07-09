@@ -46,7 +46,7 @@ import { motion, AnimatePresence } from 'motion/react';
 type SheetReading = {
   zoneName: string;
   camLabel: string;
-  waterLevel: number;
+  waterLevel: number | null;
   readStatus: string;
   hour: string;
   dateStr: string;
@@ -412,7 +412,7 @@ function HourlyTelemetryTable({
     return 1.10;
   };
 
-  const currentVal = latestLog ? latestLog.waterLevel : (
+  const currentVal = latestLog ? (latestLog.waterLevel ?? 0) : (
     secondCam ? getSimDefaultLevel(secondCam.id) : 1.10
   );
 
@@ -463,9 +463,9 @@ function HourlyTelemetryTable({
     const savedReading = hourlyReadings ? hourlyReadings[hourKey] : undefined;
 
     if (sheetTodayHourMatch) {
-      level = sheetTodayHourMatch.waterLevel;
+      level = sheetTodayHourMatch.waterLevel ?? null;
     } else if (savedReading && savedReading.isSynced && (isSelectedDateToday ? h <= currentHr : true)) {
-      level = savedReading.level != null ? savedReading.level : 0;
+      level = savedReading.level != null ? Number(savedReading.level) : null;
     }
     hourlyLevels[h] = level;
   }
@@ -1904,7 +1904,7 @@ export default function App() {
  {/* Banner แจ้งเตือนเหตุการณ์จำลอง */}
 <div style={{ width: '100%', backgroundColor: '#f59e0b', textAlign: 'center', padding: '6px 16px' }}>
   <span style={{ fontSize: '55px', fontWeight: '900', color: '#1c1917', fontFamily: "'Angsana New', serif", whiteSpace: 'nowrap' }}>
-    ⚠️ ภาพจากเหตุการณ์จำลองเท่านั้น &nbsp;ยังไม่ใช่เหตุการณ์จริง ⚠️
+    ⚠️ Ai จะประมวลผล เมื่อ ระดับน้ำจุดบ้านน้ำขุ่น / วัดปึก 4.00 เมตร วัดกะทิง 4.31 เมตร บ้านแตงเม 5.00 เมตร ⚠️
   </span>
 </div>
       {/* MAIN LAYOUT WRAPPER */}
@@ -1990,7 +1990,7 @@ export default function App() {
     }`}>
       <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
       <h3 style={{ fontSize: '55px' }} className={`font-black leading-tight ${isDarkMode ? 'text-slate-100' : 'text-blue-950'}`}>
-        วัดปึก = &nbsp;พระอธิการสุบิน &nbsp;ขนฺติธมฺโม&nbsp; ( เจ้าอาวาส วัดปึก )
+        วัดปึก = &nbsp;วัดปึก &nbsp;ร่วมกับชุมชนบ้านปึก &nbsp;จัดทำขึ้นเพื่อ &nbsp;ชุมชนลุ่มน้ำจันทบูร
       </h3>
     </div>
     {/* วิดีโอ 16:9 */}
@@ -2467,11 +2467,11 @@ export default function App() {
                 <div className="col-span-5">
                   {(() => {
                     const calculatedManualLevel = minGaugeScale + (manualLinePercent / 100) * (maxGaugeScale - minGaugeScale);
-                    const isHighScale = aiAnalysisResult && aiAnalysisResult.waterLevel > 2.5;
+                    const isHighScale = aiAnalysisResult && aiAnalysisResult.waterLevel != null && aiAnalysisResult.waterLevel > 2.5;
                     const dialMin = isHighScale ? 3.50 : 0.00;
                     const dialMax = isHighScale ? 5.00 : 2.50;
                     const percentOfDial = aiAnalysisResult 
-                      ? ((aiAnalysisResult.waterLevel - dialMin) / (dialMax - dialMin)) * 125 
+                      ? ((( aiAnalysisResult.waterLevel ?? 0) - dialMin) / (dialMax - dialMin)) * 125 
                       : 0;
 
                     const computedManualStatusClass = (val: number) => {
@@ -2575,9 +2575,9 @@ export default function App() {
                                         d="M 10 50 A 40 40 0 0 1 90 50" 
                                         fill="none" 
                                         stroke={
-                                          aiAnalysisResult.waterLevel >= (isHighScale ? 4.30 : 1.5) 
+                                          (aiAnalysisResult.waterLevel ?? 0) >= (isHighScale ? 4.30 : 1.5) 
                                             ? "#f43f5e" // red (highly critical)
-                                            : aiAnalysisResult.waterLevel >= (isHighScale ? 4.10 : 1.0) 
+                                            : (aiAnalysisResult.waterLevel ?? 0) >= (isHighScale ? 4.10 : 1.0) 
                                               ? "#f59e0b" // orange (warning)
                                               : "#10b981" // green (normal)
                                         } 

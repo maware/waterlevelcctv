@@ -18,28 +18,38 @@ const GEMINI_PRIMARY = "gemini-2.5-flash";
 const GEMINI_FALLBACK = "gemini-3.1-flash-lite";
 
 // Prompt สำหรับ Gemini — เข้าใจ example ได้ดี
-const WATER_PROMPT_GEMINI = `You are a number reader for a Thai flood CCTV system. Look at this image and read ALL decimal numbers you can see anywhere in the image.
+const WATER_PROMPT_GEMINI = `You are a water level reader for a Thai flood CCTV system. Read decimal numbers printed on a yellow staff gauge.
 
-STEP 1 — READ: List every number you can see, even if blurry, partial, or cut off. Do not filter. Do not judge. Just read and list everything.
-STEP 2 — PICK: From your list, pick numbers that look like water level markings (format X.XX, range 0.50–9.99). The answer is the LOWEST of these.
-STEP 3 — EDGE RULE: Numbers cut off at the BOTTOM edge of image are incomplete — exclude from answer but still list in detectedMarkings.
+STEP 1 — IDENTIFY: Do you see actual printed decimal numbers (digits 0-9 with decimal point) on a yellow surface? 
+- Thai text/words/letters = NOT numbers. Do NOT estimate from text.
+- If you only see Thai text, words, or no numbers at all → gaugeFound:false, waterLevel:null.
 
-- Blurry/reflective image: still try. Use digit spacing and context to estimate unclear digits.
-- If you see any X.XX format numbers at all → gaugeFound:true, set waterLevel to lowest valid one.
-- Only if image is completely dark or no numbers anywhere → gaugeFound:false, waterLevel:null.
+STEP 2 — READ: If you see real decimal numbers, list every one visible (format X.XX, e.g. 4.01, 4.02). Blurry digits OK — use spacing/context to infer. But ONLY if actual digit shapes are visible, not implied.
+
+STEP 3 — PICK: The water level is the LOWEST number in range 0.50–9.99. Numbers cut off at the BOTTOM edge are incomplete — exclude from answer.
+
+STRICT RULES:
+- Thai letters ≠ numbers. Never convert text to numbers.
+- Never guess a value if you cannot see actual digit shapes.
+- Only return a waterLevel if you can genuinely see digits, not infer from "gauge context".
+- If explanation would contain words like "implied", "estimated", "inferred", "context", "assumed" → waterLevel must be null.
+- Image showing ONLY text like "วัดปึก" or any Thai words → waterLevel:null, gaugeFound:false, no exceptions.
 
 Return ONLY JSON (no markdown):
 {"waterLevel":4.01,"confidence":0.85,"gaugeFound":true,"readStatus":"ระดับปกติ","explanation":"saw 4.03 top-left, 4.02 right, 4.01 partial bottom","detectedMarkings":["4.03","4.02","4.01"]}
 readStatus: <4.10="ระดับปกติ", 4.10-4.35="เฝ้าระวัง", >4.35="วิกฤต"`;
 
 // Prompt สำหรับ Ollama (llava, moondream)
-const WATER_PROMPT_OLLAMA = `Read ALL decimal numbers visible in this image. List everything you can see (format X.XX).
+const WATER_PROMPT_OLLAMA = `Look at this image. Find printed decimal numbers (like 4.01, 4.02) on a yellow gauge.
 
-Step 1: List every decimal number in the image. Blurry is OK — estimate from context.
-Step 2: Pick the LOWEST number between 0.50 and 9.99. That is the water level.
-Step 3: Numbers cut off at the bottom edge are incomplete — exclude from answer.
+Step 1: Do you see ACTUAL digit shapes (0-9) printed on yellow surface? Thai text/words are NOT numbers.
+- Only Thai text visible, no digits → {"waterLevel":null,"confidence":0,"gaugeFound":false,"readStatus":"ระดับปกติ","explanation":"only text visible","detectedMarkings":[]}
 
-- Only return waterLevel:null if image is completely dark or has zero numbers anywhere.
+Step 2: If real digits visible — list them (format X.XX). Blurry OK if actual digit shapes are there.
+Step 3: Pick the LOWEST between 0.50–9.99. Exclude numbers cut off at bottom edge.
+
+- Never estimate from "context" if no digit shapes visible.
+- Image with only Thai text (e.g. "วัดปึก") → waterLevel:null, no exceptions.
 - Numbers in this prompt are FORMAT EXAMPLES — never copy as answers.
 
 Return ONLY valid JSON:
