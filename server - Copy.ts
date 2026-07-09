@@ -1199,24 +1199,21 @@ async function startServer() {
     console.log('[Cron] สแกนเสร็จสิ้น (ใช้ปุ่ม "รัน Fill Job" ในหน้า admin เพื่อเติมค่าที่ขาดหาย)');
   };
 
-  // รันตอนนาที :02:30 ของทุกชั่วโมง
+  // รันตอนนาที :02 ของทุกชั่วโมง
   const _now = new Date();
-  const _targetMs = 2 * 60 * 1000 + 30 * 1000; // 2:30 นาที
-  const _elapsedMs = (_now.getMinutes() * 60 + _now.getSeconds()) * 1000;
-  const msToNextHour = (_targetMs - _elapsedMs + 60 * 60 * 1000) % (60 * 60 * 1000) || 60 * 60 * 1000;
+  const _minTarget = 2;
+  const _minDiff = (_minTarget - _now.getMinutes() + 60) % 60 || 60;
+  const msToNextHour = _minDiff * 60 * 1000 - _now.getSeconds() * 1000;
   setTimeout(() => { runHourlyScan(); setInterval(runHourlyScan, 60 * 60 * 1000); }, msToNextHour);
-  console.log("[Cron] สแกนอัตโนมัติทุกชั่วโมง นาที :02:30 (อีก " + (Math.round(msToNextHour/1000)) + " วินาที)");
+  console.log("[Cron] สแกนอัตโนมัติทุกชั่วโมง นาที :02 (อีก " + (Math.round(msToNextHour/60000)) + " นาที)");
 
-  // Snapshot job: เก็บภาพทุก 5 นาที โดยรันที่ :02:30, :07:30, :12:30, ... (ตรงกับ hourly scan)
+  // Snapshot job: เก็บภาพทุก 5 นาที (เฉพาะกล้องที่ใช้สแกน AI)
   const nowForSnapshot = new Date();
-  const _snapOffsetSec = 2 * 60 + 30; // 2:30 นาที
-  const _snapElapsedSec = (nowForSnapshot.getMinutes() % 5) * 60 + nowForSnapshot.getSeconds();
-  const _snapOffsetInPeriod = _snapOffsetSec % (5 * 60); // offset ใน period 5 นาที = 150 วินาที
-  let _snapDelaySec = (_snapOffsetInPeriod - _snapElapsedSec + 5 * 60) % (5 * 60);
-  if (_snapDelaySec === 0) _snapDelaySec = 5 * 60;
-  const msToNext5Min = _snapDelaySec * 1000;
+  const remainderMin = nowForSnapshot.getMinutes() % 5;
+  const secsSinceLast5MinMark = remainderMin * 60 + nowForSnapshot.getSeconds();
+  const msToNext5Min = (5 * 60 * 1000) - (secsSinceLast5MinMark * 1000);
   setTimeout(() => { runSnapshotJob(); setInterval(runSnapshotJob, 5 * 60 * 1000); }, msToNext5Min);
-  console.log("[Snapshot] เก็บภาพอัตโนมัติทุก 5 นาที ที่ :02:30, :07:30, ... (อีก " + (Math.round(msToNext5Min/1000)) + " วินาที)");
+  console.log("[Snapshot] เก็บภาพอัตโนมัติทุก 5 นาที (อีก " + (Math.round(msToNext5Min/1000)) + " วินาที)");
 
   // Fill-missing job: เช็คช่องว่างย้อนหลัง 3 วัน ทุก 5 นาที รันหลัง snapshot job 2 นาที
   // (เว้นระยะให้ runHourlyScan มีเวลาสแกนสดจบก่อน ลดโอกาสชนกันตอนนาที 00)

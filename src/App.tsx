@@ -1904,7 +1904,7 @@ export default function App() {
  {/* Banner แจ้งเตือนเหตุการณ์จำลอง */}
 <div style={{ width: '100%', backgroundColor: '#f59e0b', textAlign: 'center', padding: '6px 16px' }}>
   <span style={{ fontSize: '55px', fontWeight: '900', color: '#1c1917', fontFamily: "'Angsana New', serif", whiteSpace: 'nowrap' }}>
-    ⚠️ Ai จะประมวลผล เมื่อ ระดับน้ำจุดบ้านน้ำขุ่น / วัดปึก 4.00 เมตร วัดกะทิง 4.31 เมตร บ้านแตงเม 5.00 เมตร ⚠️
+    ⚠️ Ai &nbsp;จะประมวลผล &nbsp;เมื่อ &nbsp;ระดับน้ำจุดบ้านน้ำขุ่น &nbsp;/ &nbsp;วัดปึก 4.00 เมตร &nbsp;/&nbsp; วัดกะทิง 4.31 เมตร &nbsp;/&nbsp; บ้านแตงเม 5.00 เมตร ⚠️
   </span>
 </div>
       {/* MAIN LAYOUT WRAPPER */}
@@ -1989,8 +1989,8 @@ export default function App() {
       isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-sky-50/50 border-sky-100'
     }`}>
       <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-      <h3 style={{ fontSize: '50px' }} className={`font-black leading-tight ${isDarkMode ? 'text-slate-100' : 'text-blue-950'}`}>
-        วัดปึก = &nbsp;วัดปึก &nbsp;ร่วมกับชุมชนบ้านปึก &nbsp;จัดทำขึ้นเพื่อ &nbsp;ชุมชนลุ่มน้ำจันทบูร
+      <h3 style={{ fontSize: '55px' }} className={`font-black leading-tight ${isDarkMode ? 'text-slate-100' : 'text-blue-950'}`}>
+        วัดปึก &nbsp;ร่วมกับชุมชนบ้านปึก &nbsp;จัดทำขึ้นเพื่อ &nbsp;ชุมชนลุ่มน้ำจันทบูร
       </h3>
     </div>
     {/* วิดีโอ 16:9 */}
