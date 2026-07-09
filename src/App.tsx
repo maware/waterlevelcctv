@@ -467,7 +467,7 @@ function HourlyTelemetryTable({
     } else if (savedReading && savedReading.isSynced && (isSelectedDateToday ? h <= currentHr : true)) {
       level = savedReading.level != null ? Number(savedReading.level) : null;
     }
-    hourlyLevels[h] = level;
+    hourlyLevels[h] = level ?? null;
   }
 
   // Find previous day's 23 reading if possible to compare with current target date's 0 hour
@@ -478,14 +478,14 @@ function HourlyTelemetryTable({
     isReadingMatchesDate(sr, prevDay) && 
     getHourNumber(sr.hour) === 23
   );
-  const yesterday23Level = matchedPrevDay23 ? matchedPrevDay23.waterLevel : null;
+  const yesterday23Level = matchedPrevDay23 ? (matchedPrevDay23.waterLevel ?? null) : null;
 
   const rows = [];
   for (let h = 0; h <= 24; h++) {
     const isCurrent = h === currentHr;
     const isFuture = h > currentHr;
-    const level = hourlyLevels[h];
-    const prevLvl = h === 0 ? yesterday23Level : hourlyLevels[h - 1];
+    const level = hourlyLevels[h] ?? null;
+    const prevLvl = h === 0 ? yesterday23Level : (hourlyLevels[h - 1] ?? null);
     
     let diff = null;
     if (level !== null && prevLvl !== null) {
@@ -537,7 +537,7 @@ function HourlyTelemetryTable({
             </span>
           )}
         </td>
-        <td className={`px-3 py-1 text-center font-bold ${diffColorClass}`} style={{ fontFamily: "'Angsana New', 'AngsanaUPC', 'Sarabun', sans-serif", fontSize: '28.5px' }} title={prevLvl !== null ? `เปรียบเทียบกับชั่วโมงก่อนหน้า (ก่อนหน้า: ${prevLvl.toFixed(2)} ม.)` : 'ไม่มีข้อมูลชั่วโมงก่อนหน้า'}>
+        <td className={`px-3 py-1 text-center font-bold ${diffColorClass}`} style={{ fontFamily: "'Angsana New', 'AngsanaUPC', 'Sarabun', sans-serif", fontSize: '28.5px' }} title={prevLvl != null ? `เปรียบเทียบกับชั่วโมงก่อนหน้า (ก่อนหน้า: ${prevLvl.toFixed(2)} ม.)` : 'ไม่มีข้อมูลชั่วโมงก่อนหน้า'}>
           <span style={{ fontFamily: "'Angsana New', 'AngsanaUPC', 'Sarabun', sans-serif", fontSize: '45px' }}>{diffText}</span>
         </td>
       </tr>
