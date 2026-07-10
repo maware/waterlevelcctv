@@ -1904,7 +1904,7 @@ export default function App() {
  {/* Banner แจ้งเตือนเหตุการณ์จำลอง */}
 <div style={{ width: '100%', backgroundColor: '#f59e0b', textAlign: 'center', padding: '6px 16px' }}>
   <span style={{ fontSize: '55px', fontWeight: '900', color: '#1c1917', fontFamily: "'Angsana New', serif", whiteSpace: 'nowrap' }}>
-    ⚠️ Ai &nbsp;จะประมวลผล &nbsp;เมื่อ &nbsp;ระดับน้ำจุดบ้านน้ำขุ่น &nbsp;/ &nbsp;วัดปึก 4.00 เมตร &nbsp;/&nbsp; วัดกะทิง 4.31 เมตร &nbsp;/&nbsp; บ้านแตงเม 5.00 เมตร ⚠️
+    ⚠️ Ai &nbsp;จะประมวลผล &nbsp;เมื่อระดับน้ำ &nbsp;จุดบ้านน้ำขุ่น &nbsp;/ &nbsp;วัดปึก 4.00 เมตร &nbsp;/&nbsp; วัดกะทิง 4.31 เมตร &nbsp;/&nbsp; บ้านแตงเม 5.00 เมตร ⚠️
   </span>
 </div>
       {/* MAIN LAYOUT WRAPPER */}
