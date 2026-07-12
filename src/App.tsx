@@ -2168,14 +2168,19 @@ export default function App() {
 
                       {/* Zone streams */}
                       <div className={`flex-1 flex flex-col gap-4 ${isDarkMode ? 'divide-y divide-slate-950' : 'divide-y divide-sky-50'}`}>
-                        {zone.cams.map((cam) => {
+                        {zone.cams.map((cam, camIdx) => {
                           const whepUrl = generateWHEPUrl(cam.camPath, selectedQuality);
+                          const isThisZoneInModal = isFocusModalOpen && zones[activeZoneIndex]?.id === zone.id;
                           return (
                             <div key={cam.id} className="relative aspect-video">
                               {cloudSyncState === 'loading' ? (
                                 <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-center gap-1.5 p-4 select-none">
                                   <div className="w-5 h-5 border-2 border-slate-800 border-t-cyan-500 rounded-full animate-spin"></div>
                                   <div className="text-[10px] text-slate-500 font-mono tracking-wider">SYNCING CONFIG...</div>
+                                </div>
+                              ) : isThisZoneInModal ? (
+                                <div className="absolute inset-0 bg-slate-950 flex items-center justify-center">
+                                  <span className="text-[10px] text-slate-600 font-mono">กำลังแสดงในหน้าต่างขยาย...</span>
                                 </div>
                               ) : (
                                 <CameraStream
@@ -4453,7 +4458,10 @@ export default function App() {
                     return (
                       <div key={cam.id} className="flex-1 flex flex-col bg-slate-950">
                         <div className="w-full aspect-video">
+                          {/* ใช้ key="modal-..." เพื่อให้เป็น instance แยกจาก grid
+                              startDelay=camIdx*800 stagger 2 กล้องใน modal ไม่ให้พร้อมกัน */}
                           <CameraStream
+                            key={`modal-${cam.id}`}
                             camera={cam}
                             url={whepUrl}
                             isExpanded={true}

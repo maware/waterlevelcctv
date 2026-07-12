@@ -25,6 +25,7 @@ export default function CameraStream({
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const statsIntervalRef = useRef<number | null>(null);
+  const watchdogRef = useRef<number | null>(null);
 
   const [connectionState, setConnectionState] = useState<'connecting' | 'online' | 'offline' | 'error'>('connecting');
   const [retryCount, setRetryCount] = useState(0);
@@ -147,6 +148,10 @@ export default function CameraStream({
         window.clearInterval(statsIntervalRef.current);
         statsIntervalRef.current = null;
       }
+      if (watchdogRef.current) {
+        window.clearInterval(watchdogRef.current);
+        watchdogRef.current = null;
+      }
       if (hlsRef.current) {
         try {
           hlsRef.current.destroy();
@@ -169,23 +174,25 @@ export default function CameraStream({
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
       if (Hls.isSupported() && !isIOS) {
         const hls = new Hls({
-          // --- Buffer: ใหญ่ขึ้นเพื่อรองรับเน็ตช้า/ไม่เสถียร ---
-          maxMaxBufferLength: 60,         // buffer สูงสุด 60 วิ (เดิม 10)
-          maxBufferLength: 30,            // buffer เป้าหมาย 30 วิ
-          backBufferLength: 15,           // เก็บ buffer ย้อนหลัง 15 วิ เผื่อ seek
-          maxBufferSize: 60 * 1000 * 1000, // 60 MB สูงสุด
-          // --- Latency: ปิด lowLatency เพื่อเน็ตช้า ---
-          lowLatencyMode: false,          // เดิม true — ปิดเพราะเน็ตช้าต้องการ buffer มากกว่า latency ต่ำ
-          // --- Network retry: เพิ่ม retry และ timeout ---
-          manifestLoadingTimeOut: 20000,  // รอ manifest 20 วิ (เดิม default 10 วิ)
-          manifestLoadingMaxRetry: 6,     // retry manifest 6 รอบ (เดิม default 1)
-          manifestLoadingRetryDelay: 2000,// รอ 2 วิ ระหว่าง retry
-          levelLoadingTimeOut: 20000,
-          levelLoadingMaxRetry: 6,
-          levelLoadingRetryDelay: 2000,
-          fragLoadingTimeOut: 30000,      // รอโหลด segment 30 วิ (เน็ตช้ามาก)
-          fragLoadingMaxRetry: 8,         // retry segment 8 รอบ
-          fragLoadingRetryDelay: 1500,
+          // --- Low-Latency HLS (LL-HLS) — เปิดให้ตรงกับ server ---
+          lowLatencyMode: true,
+          // --- Buffer: เล็กลงเพราะเน็ตดี ไม่ต้องสะสมเยอะ ---
+          maxMaxBufferLength: 10,
+          maxBufferLength: 5,
+          backBufferLength: 5,
+          maxBufferSize: 20 * 1000 * 1000, // 20 MB
+          // --- Network timeout: สั้นลง เน็ตดีไม่ต้องรอนาน ---
+          manifestLoadingTimeOut: 8000,
+          manifestLoadingMaxRetry: 3,
+          manifestLoadingRetryDelay: 1000,
+          levelLoadingTimeOut: 8000,
+          levelLoadingMaxRetry: 3,
+          levelLoadingRetryDelay: 1000,
+          fragLoadingTimeOut: 10000,
+          fragLoadingMaxRetry: 3,
+          fragLoadingRetryDelay: 1000,
+          // --- LL-HLS specific ---
+          progressive: true,
           // --- Worker ---
           enableWorker: true,
         });
@@ -206,6 +213,36 @@ export default function CameraStream({
             .then(() => {
               setConnectionState('online');
               triggerLog('success', `กล้อง ${camera.label} เชื่อมต่อสัญญาณ HLS สำเร็จ กำลังเล่นสตรีมย้อนหลัง/สด`);
+
+              // ✅ Stall Watchdog: ตรวจทุก 5 วิ ว่า currentTime เดินอยู่ไหม
+              let lastTime = -1;
+              let stallCount = 0;
+              if (watchdogRef.current) window.clearInterval(watchdogRef.current);
+              watchdogRef.current = window.setInterval(() => {
+                if (!active || !videoRef.current) return;
+                const v = videoRef.current;
+                const now = v.currentTime;
+                if (!v.paused && !v.ended && now === lastTime) {
+                  stallCount++;
+                  console.warn(`[Watchdog] กล้อง ${camera.label} หยุดนิ่ง (${stallCount}x), t=${now}`);
+                  if (stallCount === 1) {
+                    // ครั้งแรก: nudge buffer เบาๆ
+                    v.currentTime += 0.1;
+                    v.play().catch(() => {});
+                  } else if (stallCount >= 2) {
+                    // ค้าง 10+ วิ → force reconnect
+                    console.warn(`[Watchdog] ค้างนานเกิน → reconnect กล้อง ${camera.label}`);
+                    triggerLog('warn', `กล้อง ${camera.label} ค้าง → กำลัง reconnect อัตโนมัติ...`);
+                    stallCount = 0;
+                    cleanupHls();
+                    setConnectionState('offline');
+                    setTimeout(() => { if (active) setRetryCount(p => p + 1); }, 1500);
+                  }
+                } else {
+                  stallCount = 0;
+                }
+                lastTime = now;
+              }, 5000);
             })
             .catch((err) => {
               console.warn('HLS play interrupted', err);
@@ -233,14 +270,20 @@ export default function CameraStream({
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR: {
                 networkErrorCount++;
-                // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
-                const delay = Math.min(1000 * Math.pow(2, networkErrorCount - 1), 30000);
+                // Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+                const delay = Math.min(1000 * Math.pow(2, networkErrorCount - 1), 10000);
                 console.log(`[HLS] Network error #${networkErrorCount}, retry ใน ${delay}ms`);
-                setTimeout(() => {
-                  if (active && hlsRef.current) {
-                    hls.startLoad();
-                  }
-                }, delay);
+                if (networkErrorCount > 4) {
+                  // error เยอะเกิน → reconnect ใหม่ทั้งหมดดีกว่า startLoad วนซ้ำ
+                  console.warn('[HLS] Network error เกิน 4 ครั้ง → full reconnect');
+                  cleanupHls();
+                  setConnectionState('offline');
+                  setTimeout(() => { if (active) setRetryCount(p => p + 1); }, 2000);
+                } else {
+                  setTimeout(() => {
+                    if (active && hlsRef.current) hls.startLoad();
+                  }, delay);
+                }
                 break;
               }
               case Hls.ErrorTypes.MEDIA_ERROR: {
@@ -270,9 +313,15 @@ export default function CameraStream({
                 break;
             }
           } else {
-            // Non-fatal: แค่ log ไว้
+            // Non-fatal
             if (data.details === 'bufferStalledError') {
-              console.log('[HLS] Buffer stalled, กำลังรอข้อมูลเพิ่ม...');
+              // ✅ nudge แทนที่จะ log ทิ้งเฉยๆ
+              console.warn('[HLS] bufferStalledError → nudge video');
+              const v = videoRef.current;
+              if (v && !v.paused) {
+                v.currentTime += 0.1;
+                v.play().catch(() => {});
+              }
             }
           }
         });
@@ -305,10 +354,7 @@ export default function CameraStream({
       }
     };
 
-    // Debounce connection initiation slightly (800ms) to let parent components settle
-    startTimeout = setTimeout(() => {
-      startStreaming();
-    }, 800);
+    startStreaming();
 
     return () => {
       active = false;
